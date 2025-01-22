@@ -1,0 +1,35 @@
+# Binaries for programs and plugins
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Directory for dependencies (since Go modules handle dependencies)
+vendor/
+
+# Logs and debugging
+*.log
+
+# Build and IDE artifacts
+*.DS_Store
+*.idea/
+*.vscode/
+*.vscode-test/
+*.swp
+
+# Golang specific
+bin/
+*.test
+*.prof
+
+# If you're using Go modules
+go.work
+
+# If you're using dep (old Go dependency manager)
+/vendor/
+/Gopkg.lock
+
+.env
