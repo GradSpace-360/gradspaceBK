@@ -33,3 +33,5 @@ go.work
 /Gopkg.lock
 
 .env
+
+test.db
