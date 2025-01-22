@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"gradspaceBK/controller"
-	"gradspaceBK/db"
+	"gradspaceBK/database"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -26,18 +26,13 @@ func main() {
 }
 
 func Migrate() {
-	session, err := db.DBConnection()
-	if err != nil {
-		panic(err)
-	}
+	session := database.Session.Db
 	fmt.Println("Connected to database")
-	err = db.MigrateDB(session)
-	if err != nil {
-		panic(err)
-	}
+	database.MigrateDB(session)
 }
 
 func RunServer() {
+	database.DBConnection()
 	app := fiber.New()
 	controller.SetupRouter(app)
 	app.Listen(":8003")
