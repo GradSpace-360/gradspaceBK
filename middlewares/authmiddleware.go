@@ -7,7 +7,7 @@ import (
 )
 
 func AuthMiddleware(c *fiber.Ctx) error {
-	token := c.Get("Authorization")
+	token := c.Cookies("access_token")
 	if token == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"message": "Unauthorized",

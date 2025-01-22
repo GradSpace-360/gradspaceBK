@@ -8,6 +8,7 @@ import (
 	"gradspaceBK/database"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/logger"
 )
 
 func main() {
@@ -26,6 +27,7 @@ func main() {
 }
 
 func Migrate() {
+	database.DBConnection()
 	session := database.Session.Db
 	fmt.Println("Connected to database")
 	database.MigrateDB(session)
@@ -34,6 +36,7 @@ func Migrate() {
 func RunServer() {
 	database.DBConnection()
 	app := fiber.New()
+	app.Use(logger.New())
 	controller.SetupRouter(app)
 	app.Listen(":8003")
 }

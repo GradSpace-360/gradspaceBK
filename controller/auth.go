@@ -2,6 +2,7 @@ package controller
 
 import (
 	"github.com/gofiber/fiber/v2"
+	"github.com/golang-jwt/jwt/v5"
 
 	"gradspaceBK/database"
 	"gradspaceBK/util"
@@ -9,8 +10,9 @@ import (
 
 func AuthRoutes(base *fiber.Group) error {
 	auth := base.Group("/auth")
-	// auth.Post("/login", Login)
+	auth.Post("/login/", Login)
 	auth.Post("/signup/", SignUp)
+	auth.Get("/check-auth/", CheckAuth)
 	return nil
 }
 
@@ -32,7 +34,7 @@ func Login(c *fiber.Ctx) error {
 	email := formated_data.Email
 	password := formated_data.Password
 
-	if result := session.Where("email = ?", email).First(&user); result.Error == nil {
+	if result := session.Model(&database.User{}).Where("email = ?", email).First(&user); result.Error == nil {
 		if err := util.ComparePassword(password, user.Password); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"message": "Invalid Username or Password",
@@ -59,6 +61,7 @@ func Login(c *fiber.Ctx) error {
 				"success": true,
 				"message": "Login Successful",
 				"user": map[string]interface{}{
+					"id":                  user.ID,
 					"username":            user.UserName,
 					"full_name":           user.FullName,
 					"role":                user.Role,
@@ -68,6 +71,8 @@ func Login(c *fiber.Ctx) error {
 					"is_verified":         user.IsVerified,
 					"is_onboard":          user.IsOnboard,
 					"registration_status": user.RegistrationStatus,
+					"created_at":          user.CreatedAt,
+					"updated_at":          user.UpdatedAt,
 				},
 			})
 		}
@@ -126,4 +131,28 @@ func SignUp(c *fiber.Ctx) error {
 		"message": "User Created",
 	})
 
+}
+
+func CheckAuth(c *fiber.Ctx) error {
+	user_data := c.Locals("user_data").(jwt.MapClaims)
+	session := database.Session.Db
+	user := database.User{}
+	session.Model(&database.User{}).Where("id = ?", user_data["user_id"].(string)).First(&user)
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Authorized",
+		"user": map[string]interface{}{
+			"id":                  user.ID,
+			"username":            user.UserName,
+			"full_name":           user.FullName,
+			"role":                user.Role,
+			"department":          user.Department,
+			"batch":               user.Batch,
+			"email":               user.Email,
+			"is_verified":         user.IsVerified,
+			"is_onboard":          user.IsOnboard,
+			"registration_status": user.RegistrationStatus,
+			"created_at":          user.CreatedAt,
+			"updated_at":          user.UpdatedAt,
+		},
+	})
 }
