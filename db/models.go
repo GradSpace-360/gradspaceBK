@@ -14,9 +14,17 @@ type BaseModel struct {
 }
 
 type User struct {
-	BaseModel `gorm:"embedded"`
-	Email     string `gorm:"unique;not null;size:255"`
-	Password  string `gorm:"not null"`
+	BaseModel  `gorm:"embedded"`
+	FullName   string `gorm:"size:255"`
+	UserName   string `gorm:"unique;not null;size:255"`
+	Department string `gorm:"size:255"`
+	Batch      int    `gorm:"not null"`
+	Role       string `gorm:"size:255"`
+	IsVerified bool   `gorm:"not null"`
+	IsOnboard  bool   `gorm:"not null"`
+	Username   string `gorm:"unique;not null;size:255"`
+	Email      string `gorm:"unique;not null;size:255"`
+	Password   string `gorm:"not null"`
 }
 
 func (base *BaseModel) BeforeCreate(tx *gorm.DB) error {
