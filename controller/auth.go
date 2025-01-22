@@ -14,43 +14,72 @@ func AuthRoutes(base *fiber.Group) error {
 	return nil
 }
 
-// func Login(c *fiber.Ctx) error {
-// 	var formated_data UserData
-// 	var user db.User
-// 	if err := c.BodyParser(&formated_data); err != nil {
-// 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-// 			"message": "Internal Server Error",
-// 		})
-// 	}
-// 	email := formated_data.Email
-// 	password := formated_data.Password
-// 	session, err := db.DBConnection()
-// 	if err != nil {
-// 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-// 			"message": "Internal Server Error",
-// 		})
-// 	}
-// 	if result := session.Where("email = ?", email).First(&user); result.Error == nil {
-// 		if err := util.ComparePassword(password, user.Password); err != nil {
-// 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-// 				"message": "Invalid Username or Password",
-// 			})
-// 		}
-// 		if token, err := util.GenerateToken(user.ID); err == nil {
-// 			return c.Status(fiber.StatusOK).JSON(fiber.Map{
-// 				"message": "Login Successful",
-// 				"token":   token,
-// 			})
-// 		}
-// 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-// 			"message": "Internal Server Error",
-// 		})
+type LoginData struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
 
-// 	}
-// 	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-// 		"message": "Invalid Username or Password",
-// 	})
-// }
+func Login(c *fiber.Ctx) error {
+	var formated_data LoginData
+	var user database.User
+	if err := c.BodyParser(&formated_data); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Internal Server Error",
+		})
+	}
+	session := database.Session.Db
+
+	email := formated_data.Email
+	password := formated_data.Password
+
+	if result := session.Where("email = ?", email).First(&user); result.Error == nil {
+		if err := util.ComparePassword(password, user.Password); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"message": "Invalid Username or Password",
+			})
+		}
+		if token, err := util.GenerateToken(user.ID); err == nil {
+			access_cookie := &fiber.Cookie{
+				Name:     "access_token",
+				Value:    token["access_token"],
+				HTTPOnly: true,
+				Secure:   false,
+				SameSite: "Strict",
+			}
+			refresh_cookie := &fiber.Cookie{
+				Name:     "refresh_token",
+				Value:    token["refresh_token"],
+				HTTPOnly: true,
+				Secure:   false,
+				SameSite: "Strict",
+			}
+			c.Cookie(access_cookie)
+			c.Cookie(refresh_cookie)
+			return c.Status(fiber.StatusOK).JSON(fiber.Map{
+				"success": true,
+				"message": "Login Successful",
+				"user": map[string]interface{}{
+					"username":            user.UserName,
+					"full_name":           user.FullName,
+					"role":                user.Role,
+					"department":          user.Department,
+					"batch":               user.Batch,
+					"email":               user.Email,
+					"is_verified":         user.IsVerified,
+					"is_onboard":          user.IsOnboard,
+					"registration_status": user.RegistrationStatus,
+				},
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Internal Server Error",
+		})
+
+	}
+	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+		"message": "Invalid Username or Password",
+	})
+}
 
 type SignUpData struct {
 	UserName string `json:"username"`
