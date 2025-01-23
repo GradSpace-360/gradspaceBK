@@ -29,13 +29,20 @@ type User struct {
 }
 
 type RegisterRequest struct {
-	BaseModel   `gorm:"embedded"` 
-	FullName    string    `gorm:"size:255;not null"`
-	Department  string    `gorm:"size:255;not null"`
-	Batch       string    `gorm:"size:255;not null"`
-	Email       string    `gorm:"size:255;unique;not null"`
-	PhoneNumber string    `gorm:"size:20;not null"`
-	Role        string    `gorm:"size:255;not null"`
+	BaseModel   `gorm:"embedded"`
+	FullName    string `gorm:"size:255;not null"`
+	Department  string `gorm:"size:255;not null"`
+	Batch       string `gorm:"size:255;not null"`
+	Email       string `gorm:"size:255;unique;not null"`
+	PhoneNumber string `gorm:"size:20;not null"`
+	Role        string `gorm:"size:255;not null"`
+}
+
+type Verification struct {
+	BaseModel         `gorm:"embedded"`
+	UserID            string `gorm:"not null;size:36"`
+	VerificationToken string `gorm:"not null"`
+	User              User   `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
 func (base *BaseModel) BeforeCreate(tx *gorm.DB) error {
@@ -48,5 +55,5 @@ func (base *BaseModel) BeforeCreate(tx *gorm.DB) error {
 }
 
 func MigrateDB(db *gorm.DB) error {
-	return db.AutoMigrate(&User{},&RegisterRequest{})
+	return db.AutoMigrate(&User{}, &RegisterRequest{}, &Verification{})
 }
