@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 
@@ -161,8 +163,25 @@ func CheckAuth(c *fiber.Ctx) error {
 }
 
 func Logout(c *fiber.Ctx) error {
-	c.ClearCookie("access_token")
-	c.ClearCookie("refresh_token")
+		// Create cookies with empty values and expired dates to clear them
+		access_cookie := &fiber.Cookie{
+			Name:     "access_token",
+			Value:    "",
+			Expires:  time.Now().Add(-1 * time.Hour), 
+			HTTPOnly: true,
+			Secure:   false,
+			SameSite: "None",
+		}
+		refresh_cookie := &fiber.Cookie{
+			Name:     "refresh_token",
+			Value:    "",
+			Expires:  time.Now().Add(-1 * time.Hour), 
+			HTTPOnly: true,
+			Secure:   false,
+			SameSite: "None",
+		}
+		c.Cookie(access_cookie)
+		c.Cookie(refresh_cookie)
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"success": true,
 		"message": "Logout successful",
