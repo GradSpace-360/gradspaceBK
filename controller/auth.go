@@ -1,31 +1,21 @@
 package controller
 
 import (
-	"time"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 
 	"gradspaceBK/database"
 	"gradspaceBK/middlewares"
 	"gradspaceBK/util"
-
-	"github.com/gofiber/fiber/v2/middleware/cors"
 )
 
 func AuthRoutes(base *fiber.Group) error {
 	auth := base.Group("/auth")
 
-	auth.Use(cors.New(cors.Config{
-		AllowOrigins:     "http://localhost:5173", 
-		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS",
-		AllowHeaders:     "Origin,Content-Type,Accept,Authorization",
-		AllowCredentials: true,
-	}))
-	
 	auth.Post("/login/", Login)
 	auth.Post("/signup/", SignUp)
 	auth.Get("/check-auth/", middlewares.AuthMiddleware, CheckAuth)
-	auth.Post("/logout/", Logout) 
+	auth.Post("/logout/", Logout)
 	return nil
 }
 
@@ -171,26 +161,8 @@ func CheckAuth(c *fiber.Ctx) error {
 }
 
 func Logout(c *fiber.Ctx) error {
-	// Create cookies with empty values and expired dates to clear them
-	access_cookie := &fiber.Cookie{
-		Name:     "access_token",
-		Value:    "",
-		Expires:  time.Now().Add(-1 * time.Hour), 
-		HTTPOnly: true,
-		Secure:   false,
-		SameSite: "None",
-	}
-	refresh_cookie := &fiber.Cookie{
-		Name:     "refresh_token",
-		Value:    "",
-		Expires:  time.Now().Add(-1 * time.Hour), 
-		HTTPOnly: true,
-		Secure:   false,
-		SameSite: "None",
-	}
-	c.Cookie(access_cookie)
-	c.Cookie(refresh_cookie)
-
+	c.ClearCookie("access_token")
+	c.ClearCookie("refresh_token")
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"success": true,
 		"message": "Logout successful",

@@ -5,18 +5,10 @@ import (
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
 )
 
 func RegisterRoutes(base *fiber.Group) error {
 	register := base.Group("/register")
-
-	register.Use(cors.New(cors.Config{
-		AllowOrigins:     "http://localhost:5173", 
-		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS",
-		AllowHeaders:     "Origin,Content-Type,Accept,Authorization",
-		AllowCredentials: true,
-	}))
 	register.Post("/request", RegisterRequest)
 	register.Patch("/:requestId", HandleRegistrationAction)
 	register.Get("/requests", GetRegisterRequests)
