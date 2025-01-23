@@ -28,6 +28,16 @@ type User struct {
 	Password           string `gorm:"not null"`
 }
 
+type RegisterRequest struct {
+	BaseModel   `gorm:"embedded"` 
+	FullName    string    `gorm:"size:255;not null"`
+	Department  string    `gorm:"size:255;not null"`
+	Batch       string    `gorm:"size:255;not null"`
+	Email       string    `gorm:"size:255;unique;not null"`
+	PhoneNumber string    `gorm:"size:20;not null"`
+	Role        string    `gorm:"size:255;not null"`
+}
+
 func (base *BaseModel) BeforeCreate(tx *gorm.DB) error {
 	*base = BaseModel{
 		ID:        uuid.New().String(),
@@ -38,5 +48,5 @@ func (base *BaseModel) BeforeCreate(tx *gorm.DB) error {
 }
 
 func MigrateDB(db *gorm.DB) error {
-	return db.AutoMigrate(&User{})
+	return db.AutoMigrate(&User{},&RegisterRequest{})
 }
