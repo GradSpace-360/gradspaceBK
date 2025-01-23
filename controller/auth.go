@@ -5,6 +5,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 
 	"gradspaceBK/database"
 	"gradspaceBK/middlewares"
@@ -17,6 +18,8 @@ func AuthRoutes(base *fiber.Group) error {
 	auth.Post("/login/", Login)
 	auth.Post("/signup/", SignUp)
 	auth.Get("/check-auth/", middlewares.AuthMiddleware, CheckAuth)
+	auth.Get("/send-verification/", middlewares.AuthMiddleware, SendVerification)
+	auth.Get("/verify/:token", middlewares.AuthMiddleware, VerifyUser)
 	auth.Post("/logout/", Logout)
 	return nil
 }
@@ -162,26 +165,69 @@ func CheckAuth(c *fiber.Ctx) error {
 	})
 }
 
+func SendVerification(c *fiber.Ctx) error {
+	user_data := c.Locals("user_data").(jwt.MapClaims)
+	session := database.Session.Db
+	user := database.User{}
+	if session.Model(&database.User{}).Where("id = ?", user_data["user_id"].(string)).First(&user).RowsAffected == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "User not found",
+		})
+	}
+	if user.IsVerified {
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+			"message": "User is already verified",
+		})
+	}
+	token := uuid.New().String()
+	session.Create(&database.Verification{UserID: user.ID, VerificationToken: token})
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Verification email sent",
+	})
+}
+
+func VerifyUser(c *fiber.Ctx) error {
+	user_data := c.Locals("user_data").(jwt.MapClaims)
+	verificationToken := c.Params("token")
+	session := database.Session.Db
+	verification := database.Verification{}
+	if session.Model(&database.Verification{}).Where(
+		"user_id = ? and verification_token = ?", user_data["user_id"], verificationToken).First(&verification).RowsAffected == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "Invalid Token",
+		})
+	}
+	if verification.CreatedAt.Add(5 * time.Minute).Before(time.Now()) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "Token Expired",
+		})
+	}
+	session.Model(&database.User{}).Where("id = ?", user_data["user_id"]).Update("is_verified", true)
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "User Verified",
+	})
+}
+
 func Logout(c *fiber.Ctx) error {
-		// Create cookies with empty values and expired dates to clear them
-		access_cookie := &fiber.Cookie{
-			Name:     "access_token",
-			Value:    "",
-			Expires:  time.Now().Add(-1 * time.Hour), 
-			HTTPOnly: true,
-			Secure:   false,
-			SameSite: "None",
-		}
-		refresh_cookie := &fiber.Cookie{
-			Name:     "refresh_token",
-			Value:    "",
-			Expires:  time.Now().Add(-1 * time.Hour), 
-			HTTPOnly: true,
-			Secure:   false,
-			SameSite: "None",
-		}
-		c.Cookie(access_cookie)
-		c.Cookie(refresh_cookie)
+	// Create cookies with empty values and expired dates to clear them
+	access_cookie := &fiber.Cookie{
+		Name:     "access_token",
+		Value:    "",
+		Expires:  time.Now().Add(-1 * time.Hour),
+		HTTPOnly: true,
+		Secure:   false,
+		SameSite: "None",
+	}
+	refresh_cookie := &fiber.Cookie{
+		Name:     "refresh_token",
+		Value:    "",
+		Expires:  time.Now().Add(-1 * time.Hour),
+		HTTPOnly: true,
+		Secure:   false,
+		SameSite: "None",
+	}
+	c.Cookie(access_cookie)
+	c.Cookie(refresh_cookie)
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"success": true,
 		"message": "Logout successful",
