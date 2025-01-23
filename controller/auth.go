@@ -5,14 +5,25 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 
 	"gradspaceBK/database"
+	"gradspaceBK/middlewares"
 	"gradspaceBK/util"
+
+	"github.com/gofiber/fiber/v2/middleware/cors"
 )
 
 func AuthRoutes(base *fiber.Group) error {
 	auth := base.Group("/auth")
+
+	auth.Use(cors.New(cors.Config{
+		AllowOrigins:     "http://localhost:5173", 
+		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS",
+		AllowHeaders:     "Origin,Content-Type,Accept,Authorization",
+		AllowCredentials: true,
+	}))
+	
 	auth.Post("/login/", Login)
 	auth.Post("/signup/", SignUp)
-	auth.Get("/check-auth/", CheckAuth)
+	auth.Get("/check-auth/", middlewares.AuthMiddleware, CheckAuth) 
 	return nil
 }
 
@@ -46,14 +57,14 @@ func Login(c *fiber.Ctx) error {
 				Value:    token["access_token"],
 				HTTPOnly: true,
 				Secure:   false,
-				SameSite: "Strict",
+				SameSite: "None",
 			}
 			refresh_cookie := &fiber.Cookie{
 				Name:     "refresh_token",
 				Value:    token["refresh_token"],
 				HTTPOnly: true,
 				Secure:   false,
-				SameSite: "Strict",
+				SameSite: "None",
 			}
 			c.Cookie(access_cookie)
 			c.Cookie(refresh_cookie)
