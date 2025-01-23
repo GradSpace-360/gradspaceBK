@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"time"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 
@@ -23,7 +24,8 @@ func AuthRoutes(base *fiber.Group) error {
 	
 	auth.Post("/login/", Login)
 	auth.Post("/signup/", SignUp)
-	auth.Get("/check-auth/", middlewares.AuthMiddleware, CheckAuth) 
+	auth.Get("/check-auth/", middlewares.AuthMiddleware, CheckAuth)
+	auth.Post("/logout/", Logout) 
 	return nil
 }
 
@@ -165,5 +167,32 @@ func CheckAuth(c *fiber.Ctx) error {
 			"created_at":          user.CreatedAt,
 			"updated_at":          user.UpdatedAt,
 		},
+	})
+}
+
+func Logout(c *fiber.Ctx) error {
+	// Create cookies with empty values and expired dates to clear them
+	access_cookie := &fiber.Cookie{
+		Name:     "access_token",
+		Value:    "",
+		Expires:  time.Now().Add(-1 * time.Hour), 
+		HTTPOnly: true,
+		Secure:   false,
+		SameSite: "None",
+	}
+	refresh_cookie := &fiber.Cookie{
+		Name:     "refresh_token",
+		Value:    "",
+		Expires:  time.Now().Add(-1 * time.Hour), 
+		HTTPOnly: true,
+		Secure:   false,
+		SameSite: "None",
+	}
+	c.Cookie(access_cookie)
+	c.Cookie(refresh_cookie)
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
+		"message": "Logout successful",
 	})
 }
