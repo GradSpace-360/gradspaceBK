@@ -23,7 +23,6 @@ type User struct {
 	IsVerified         bool   `gorm:"not null"`
 	IsOnboard          bool   `gorm:"not null"`
 	RegistrationStatus string `gorm:"not null;size:100;default:'not_registered'"`
-	Username           string `gorm:"unique;not null;size:255"`
 	Email              string `gorm:"unique;not null;size:255"`
 	Password           string `gorm:"not null"`
 }
