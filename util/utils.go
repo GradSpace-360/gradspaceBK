@@ -1,6 +1,7 @@
 package util
 
 import (
+	"crypto/rand"
 	"fmt"
 	"os"
 	"time"
@@ -64,4 +65,16 @@ func VerifyToken(tokenString string) (jwt.MapClaims, error) {
 	} else {
 		return nil, err
 	}
+}
+
+func GenerateOtp() (string, error) {
+	otpBytes := make([]byte, 6)
+	_, err := rand.Read(otpBytes)
+	if err != nil {
+		return "", err
+	}
+	for i := 0; i < 6; i++ {
+		otpBytes[i] = '0' + (otpBytes[i] % 10)
+	}
+	return string(otpBytes), nil
 }
