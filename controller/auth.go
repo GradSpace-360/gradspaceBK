@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -11,6 +12,7 @@ import (
 
 	"gradspaceBK/database"
 	"gradspaceBK/middlewares"
+	"gradspaceBK/services"
 	"gradspaceBK/util"
 )
 
@@ -87,114 +89,171 @@ func SendVerificationOTP(c *fiber.Ctx) error {
 	}
 
 	// TODO: Implement email sending service to send OTP
+		// Use email service to send the OTP
+		subject := "Your Verification Code"
+		text := fmt.Sprintf("Your verification code is: %s", otp)
+		data := map[string]string{
+			"VerificationCode": otp,
+		}
+		html, err := util.RenderTemplate("templates/verification_email.html", data)
+		if err != nil {
+   			 return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+      			  "message": "Failed to render email template",
+    		})
+		}
+		if err := services.SendEmail(user.Email, subject, text, html); err != nil {
+			fmt.Println("mail error")
+			fmt.Println(err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"message": "Failed to send OTP email",
+			})
+		}
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "OTP sent successfully",
 	})
 }
 
 func VerifyEmail(c *fiber.Ctx) error {
-	userData := c.Locals("user_data").(jwt.MapClaims)
-	userID := userData["user_id"].(string)
+    userData := c.Locals("user_data").(jwt.MapClaims)
+    userID := userData["user_id"].(string)
 
-	type VerifyEmailRequest struct {
-		Code string `json:"code"`
-	}
+    type VerifyEmailRequest struct {
+        Code string `json:"code"`
+    }
 
-	var request VerifyEmailRequest
-	if err := c.BodyParser(&request); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": "Invalid request body",
-		})
-	}
+    var request VerifyEmailRequest
+    if err := c.BodyParser(&request); err != nil {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+            "message": "Invalid request body",
+        })
+    }
 
-	session := database.Session.Db
+    session := database.Session.Db
 
-	var user database.User
-	if err := session.First(&user, "id = ?", userID).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"message": "User not found",
-		})
-	}
+    var user database.User
+    if err := session.First(&user, "id = ?", userID).Error; err != nil {
+        return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+            "message": "User not found",
+        })
+    }
 
-	if user.IsVerified {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": "User is already verified",
-		})
-	}
+    if user.IsVerified {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+            "message": "User is already verified",
+        })
+    }
 
-	var verification database.Verification
-	if err := session.First(&verification, "user_id = ?", userID).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"message": "OTP not found or expired",
-		})
-	}
+    var verification database.Verification
+    if err := session.First(&verification, "user_id = ?", userID).Error; err != nil {
+        return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+            "message": "OTP not found or expired",
+        })
+    }
 
-	if time.Now().After(verification.ExpiresAt) {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": "OTP has expired",
-		})
-	}
+    if time.Now().After(verification.ExpiresAt) {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+            "message": "OTP has expired",
+        })
+    }
 
-	if request.Code != verification.VerificationToken {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": "Invalid OTP",
-		})
-	}
+    if request.Code != verification.VerificationToken {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+            "message": "Invalid OTP",
+        })
+    }
 
-	if err := session.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&database.User{}).Where("id = ?", userID).Update("is_verified", true).Error; err != nil {
-			return err
-		}
-		if err := tx.Delete(&verification).Error; err != nil {
-			return err
-		}
-		return nil
-	}); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"message": "Failed to verify user",
-		})
-	}
+    if err := session.Transaction(func(tx *gorm.DB) error {
+        if err := tx.Model(&database.User{}).Where("id = ?", userID).Update("is_verified", true).Error; err != nil {
+            return err
+        }
+        if err := tx.Delete(&verification).Error; err != nil {
+            return err
+        }
+        return nil
+    }); err != nil {
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+            "message": "Failed to verify user",
+        })
+    }
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message": "Email verified successfully",
-	})
+    subject := "Welcome to GradSpace!"
+    data := map[string]string{
+        "userName": user.UserName, 
+    }
+    html, err := util.RenderTemplate("templates/welcome_email.html", data)
+    if err != nil {
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+            "message": "Failed to render welcome email template",
+        })
+    }
+
+    text := fmt.Sprintf("Hello %s,\n\nWelcome to GradSpace! We're thrilled to have you join our community of graduate students and researchers.", user.UserName)
+    if err := services.SendEmail(user.Email, subject, text, html); err != nil {
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+            "message": "Failed to send welcome email",
+        })
+    }
+
+    return c.Status(fiber.StatusOK).JSON(fiber.Map{
+        "message": "Email verified successfully",
+    })
 }
 
-
 func ForgotPassword(c *fiber.Ctx) error {
-	type RequestBody struct {
-		Email string `json:"email"`
-	}
+    type RequestBody struct {
+        Email string `json:"email"`
+    }
 
-	var body RequestBody
-	if err := c.BodyParser(&body); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": "Invalid request body",
-		})
-	}
+    var body RequestBody
+    if err := c.BodyParser(&body); err != nil {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+            "message": "Invalid request body",
+        })
+    }
 
-	session := database.Session.Db
-	user := database.User{}
-	if session.Where("email = ?", body.Email).First(&user).RowsAffected == 0 {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"message": "User not found",
-		})
-	}
+    session := database.Session.Db
+    user := database.User{}
+    if session.Where("email = ?", body.Email).First(&user).RowsAffected == 0 {
+        return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+            "message": "User not found",
+        })
+    }
 
-	resetToken := uuid.New().String()
-	resetExpire := time.Now().Add(5 * time.Minute)
+    resetToken := uuid.New().String()
+    resetExpire := time.Now().Add(5 * time.Minute)
 
-	session.Create(&database.Verification{
-		UserID:           user.ID,
-		ResetPasswordToken: resetToken,
-		ExpiresAt: resetExpire,
-	})
+    session.Create(&database.Verification{
+        UserID:             user.ID,
+        ResetPasswordToken: resetToken,
+        ExpiresAt:          resetExpire,
+    })
 
-	// TODO: Send email with resetToken to user.Email
+    // Generate the reset password link with the reset token
+	// TODO: update the link to your frontend deployment URL
+    resetPasswordLink := fmt.Sprintf("http://localhost:5173/reset-Password/%s", resetToken)
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message": "Reset password email sent",
-	})
+    data := map[string]string{
+        "ResetPasswordLink": resetPasswordLink,
+        "Username":          user.UserName, 
+    }
+    html, err := util.RenderTemplate("templates/reset_password_email.html", data)
+    if err != nil {
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+            "message": "Failed to render email template",
+        })
+    }
+
+    subject := "Reset Your Password"
+    text := fmt.Sprintf("Please click the following link to reset your password: %s", resetPasswordLink)
+    if err := services.SendEmail(user.Email, subject, text, html); err != nil {
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+            "message": "Failed to send reset password email",
+        })
+    }
+
+    return c.Status(fiber.StatusOK).JSON(fiber.Map{
+        "message": "Reset password email sent",
+    })
 }
 func ResetPassword(c *fiber.Ctx) error {
 	type ResetPasswordRequest struct {
