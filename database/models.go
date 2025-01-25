@@ -42,7 +42,7 @@ type Verification struct {
 	UserID            string `gorm:"not null;size:36"`
 	VerificationToken string `gorm:"size:6"`    
 	User              User   `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	ResetPasswordToken     string    `gorm:"size:36;uniqueIndex"`                       
+	ResetPasswordToken     string    `gorm:"size:36;"`                       
 	ExpiresAt time.Time `gorm:"type:timestamp"`  
 }
 
