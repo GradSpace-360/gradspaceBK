@@ -5,6 +5,8 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
+	"gorm.io/gorm"
+
 	"github.com/google/uuid"
 
 	"gradspaceBK/database"
@@ -12,16 +14,239 @@ import (
 	"gradspaceBK/util"
 )
 
+
+
+
 func AuthRoutes(base *fiber.Group) error {
 	auth := base.Group("/auth")
 
 	auth.Post("/login/", Login)
 	auth.Post("/signup/", SignUp)
 	auth.Get("/check-auth/", middlewares.AuthMiddleware, CheckAuth)
-	auth.Get("/send-verification/", middlewares.AuthMiddleware, SendVerification)
-	auth.Get("/verify/:token", middlewares.AuthMiddleware, VerifyUser)
+	auth.Get("/send-verification-otp/", middlewares.AuthMiddleware,SendVerificationOTP)
+	auth.Post("/verify-email", middlewares.AuthMiddleware, VerifyEmail) 
 	auth.Post("/logout/", Logout)
+	auth.Post("/forgot-password", ForgotPassword) 
+	auth.Post("/reset-password/:token", ResetPassword)
 	return nil
+}
+
+func SendVerificationOTP(c *fiber.Ctx) error {
+	userData := c.Locals("user_data").(jwt.MapClaims)
+	userID := userData["user_id"].(string)
+
+	session := database.Session.Db
+
+	var user database.User
+	if err := session.Where("id = ?", userID).First(&user).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"message": "User not found",
+		})
+	}
+
+	if user.IsVerified {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "User is already verified",
+		})
+	}
+
+	otp, err := util.GenerateOtp()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Failed to generate OTP",
+		})
+	}
+
+	var verification database.Verification
+
+	if err := session.Where("user_id = ?", userID).First(&verification).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			verification = database.Verification{
+				UserID:               userID,
+				VerificationToken:    otp,
+				ExpiresAt: time.Now().Add(5 * time.Minute),
+			}
+			if err := session.Create(&verification).Error; err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"message": "Failed to store OTP",
+				})
+			}
+		} else {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"message": "Failed to query verification record",
+			})
+		}
+	} else {
+		verification.VerificationToken = otp
+		verification.ExpiresAt = time.Now().Add(5 * time.Minute)
+		if err := session.Save(&verification).Error; err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"message": "Failed to update OTP",
+			})
+		}
+	}
+
+	// TODO: Implement email sending service to send OTP
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "OTP sent successfully",
+	})
+}
+
+func VerifyEmail(c *fiber.Ctx) error {
+	userData := c.Locals("user_data").(jwt.MapClaims)
+	userID := userData["user_id"].(string)
+
+	type VerifyEmailRequest struct {
+		Code string `json:"code"`
+	}
+
+	var request VerifyEmailRequest
+	if err := c.BodyParser(&request); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "Invalid request body",
+		})
+	}
+
+	session := database.Session.Db
+
+	var user database.User
+	if err := session.First(&user, "id = ?", userID).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"message": "User not found",
+		})
+	}
+
+	if user.IsVerified {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "User is already verified",
+		})
+	}
+
+	var verification database.Verification
+	if err := session.First(&verification, "user_id = ?", userID).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"message": "OTP not found or expired",
+		})
+	}
+
+	if time.Now().After(verification.ExpiresAt) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "OTP has expired",
+		})
+	}
+
+	if request.Code != verification.VerificationToken {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "Invalid OTP",
+		})
+	}
+
+	if err := session.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&database.User{}).Where("id = ?", userID).Update("is_verified", true).Error; err != nil {
+			return err
+		}
+		if err := tx.Delete(&verification).Error; err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Failed to verify user",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Email verified successfully",
+	})
+}
+
+
+func ForgotPassword(c *fiber.Ctx) error {
+	type RequestBody struct {
+		Email string `json:"email"`
+	}
+
+	var body RequestBody
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "Invalid request body",
+		})
+	}
+
+	session := database.Session.Db
+	user := database.User{}
+	if session.Where("email = ?", body.Email).First(&user).RowsAffected == 0 {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"message": "User not found",
+		})
+	}
+
+	resetToken := uuid.New().String()
+	resetExpire := time.Now().Add(5 * time.Minute)
+
+	session.Create(&database.Verification{
+		UserID:           user.ID,
+		ResetPasswordToken: resetToken,
+		ExpiresAt: resetExpire,
+	})
+
+	// TODO: Send email with resetToken to user.Email
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Reset password email sent",
+	})
+}
+func ResetPassword(c *fiber.Ctx) error {
+	type ResetPasswordRequest struct {
+		Password string `json:"password"`
+	}
+
+	token := c.Params("token")
+
+	var request ResetPasswordRequest
+	if err := c.BodyParser(&request); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "Invalid request body",
+		})
+	}
+	
+	session := database.Session.Db
+	var verification database.Verification
+	if err := session.Where("reset_password_token = ?", token).First(&verification).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"message": "Invalid or expired token",
+		})
+	}
+
+	if time.Now().After(verification.ExpiresAt) {
+		session.Delete(&verification)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "Token has expired. Please request a new password reset.",
+		})
+	}
+
+	hashedPassword, err := util.HashPassword(request.Password)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Failed to hash password",
+		})
+	}
+
+	if err := session.Model(&database.User{}).Where("id = ?", verification.UserID).Update("password", hashedPassword).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Failed to update password",
+		})
+	}
+
+	if err := session.Delete(&verification).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Failed to delete verification record",
+		})
+	}
+	// TODO: Send email to user.Email informing them that their password has been reset
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Password has been reset successfully",
+	})
 }
 
 type LoginData struct {
@@ -105,7 +330,7 @@ func SignUp(c *fiber.Ctx) error {
 
 	if err := c.BodyParser(&formated_data); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": err,
+			"message": err.Error(),
 		})
 	}
 	session := database.Session.Db
@@ -134,11 +359,49 @@ func SignUp(c *fiber.Ctx) error {
 		})
 	}
 
-	session.Create(&database.User{Email: email, Password: hashed_password, UserName: username})
+	newUser := database.User{
+		Email:    email,
+		Password: hashed_password,
+		UserName: username,
+	}
+	if err := session.Create(&newUser).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Failed to create user",
+		})
+	}
+
+	tokens, err := util.GenerateToken(newUser.ID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Failed to generate tokens",
+		})
+	}
+
+	access_cookie := &fiber.Cookie{
+		Name:     "access_token",
+		Value:    tokens["access_token"],
+		HTTPOnly: true,
+		Secure:   false,
+		SameSite: "None",
+	}
+	refresh_cookie := &fiber.Cookie{
+		Name:     "refresh_token",
+		Value:    tokens["refresh_token"],
+		HTTPOnly: true,
+		Secure:   false,
+		SameSite: "None",
+	}
+	c.Cookie(access_cookie)
+	c.Cookie(refresh_cookie)
+
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"message": "User Created",
+		"user": fiber.Map{
+			"id":       newUser.ID,
+			"username": newUser.UserName,
+			"email":    newUser.Email,
+		},
 	})
-
 }
 
 func CheckAuth(c *fiber.Ctx) error {
@@ -162,49 +425,6 @@ func CheckAuth(c *fiber.Ctx) error {
 			"created_at":          user.CreatedAt,
 			"updated_at":          user.UpdatedAt,
 		},
-	})
-}
-
-func SendVerification(c *fiber.Ctx) error {
-	user_data := c.Locals("user_data").(jwt.MapClaims)
-	session := database.Session.Db
-	user := database.User{}
-	if session.Model(&database.User{}).Where("id = ?", user_data["user_id"].(string)).First(&user).RowsAffected == 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": "User not found",
-		})
-	}
-	if user.IsVerified {
-		return c.Status(fiber.StatusOK).JSON(fiber.Map{
-			"message": "User is already verified",
-		})
-	}
-	token := uuid.New().String()
-	session.Create(&database.Verification{UserID: user.ID, VerificationToken: token})
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message": "Verification email sent",
-	})
-}
-
-func VerifyUser(c *fiber.Ctx) error {
-	user_data := c.Locals("user_data").(jwt.MapClaims)
-	verificationToken := c.Params("token")
-	session := database.Session.Db
-	verification := database.Verification{}
-	if session.Model(&database.Verification{}).Where(
-		"user_id = ? and verification_token = ?", user_data["user_id"], verificationToken).First(&verification).RowsAffected == 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": "Invalid Token",
-		})
-	}
-	if verification.CreatedAt.Add(5 * time.Minute).Before(time.Now()) {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": "Token Expired",
-		})
-	}
-	session.Model(&database.User{}).Where("id = ?", user_data["user_id"]).Update("is_verified", true)
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message": "User Verified",
 	})
 }
 
