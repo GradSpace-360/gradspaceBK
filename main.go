@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"gradspaceBK/config"
 	"gradspaceBK/controller"
 	"gradspaceBK/database"
 
@@ -15,6 +16,7 @@ func main() {
 	if len(os.Args) < 2 {
 		panic("No command provided")
 	}
+	config.LoadConfig()
 	arg := os.Args[1]
 	switch arg {
 	case "migrate":
