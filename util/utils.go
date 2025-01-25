@@ -1,8 +1,10 @@
 package util
 
 import (
+	"bytes"
 	"crypto/rand"
 	"fmt"
+	"html/template"
 	"os"
 	"time"
 
@@ -77,4 +79,18 @@ func GenerateOtp() (string, error) {
 		otpBytes[i] = '0' + (otpBytes[i] % 10)
 	}
 	return string(otpBytes), nil
+}
+
+func RenderTemplate(templatePath string, data interface{}) (string, error) {
+	tmpl, err := template.ParseFiles(templatePath)
+	if err != nil {
+		return "", err
+	}
+
+	var rendered bytes.Buffer
+	if err := tmpl.Execute(&rendered, data); err != nil {
+		return "", err
+	}
+
+	return rendered.String(), nil
 }
