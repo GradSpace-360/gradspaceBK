@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html dir="ltr" lang="en">
+
+<head>
+    <link rel="preload" as="image"
+        href="https://images.pexels.com/photos/1553150/pexels-photo-1553150.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1" />
+    <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Welcome to GradSpace</title>
+    <style>
+        body {
+            background-color: #f8f9fa;
+            color: #333333;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        table {
+            border-spacing: 0;
+            width: 100%;
+        }
+
+        td {
+            padding: 0;
+        }
+
+        img {
+            border: 0;
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border: 1px solid #dddddd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .header {
+
+            text-align: center;
+            background-color: transparent;
+        }
+
+        .header-content {
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        .header img {
+            width: 80px;
+            /* Reduced logo size */
+            height: auto;
+            pointer-events: none;
+            margin-top: 20px;
+        }
+
+        .header h1 {
+            color: #333333;
+            /* Changed to match the text color */
+            font-size: 20px;
+            /* Reduced heading size */
+
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        .content {
+            padding: 5px;
+            text-align: center;
+        }
+
+        .content h1 {
+            font-size: 22px;
+            /* Reduced heading size */
+            color: #1a1c1a;
+
+        }
+
+        .content p {
+            font-size: 16px;
+            line-height: 1.5;
+            color: #666666;
+            margin: 0 0 20px;
+        }
+
+        .content ul {
+            text-align: left;
+            margin: 20px 0;
+            padding-left: 20px;
+        }
+
+        .content ul li {
+            margin-bottom: 10px;
+            margin-left: 20px;
+        }
+
+        .footer {
+            background-color: #f1f1f1;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #4c4c4c;
+        }
+
+        .footer a {
+            color: #15133c;
+            text-decoration: none;
+        }
+
+        .image-container {
+            display: block;
+            padding: 0px 20px;
+            margin: 5px auto;
+        }
+
+        .button {
+            background-color: #333333;
+            color: white;
+            padding: 12px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            display: inline-block;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <table class="container">
+        <!-- Header Section -->
+        <tr>
+            <td class="header">
+                <div class="header-content">
+                    <div class="image-container">
+                        <img src="https://images.pexels.com/photos/30400372/pexels-photo-30400372.png?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1"
+                            alt="GradSpace Logo" style="pointer-events: none;">
+                    </div>
+                    <h1>GradSpace</h1>
+                </div>
+            </td>
+        </tr>
+        <!-- Content Section -->
+        <tr>
+            <td class="content">
+                <h1>Welcome to GradSpace</h1>
+                <p>Hello {{.userName}},</p>
+                <p>Welcome to GradSpace! We're thrilled to have you join our community of graduate students and
+                    researchers.</p>
+                <div class="image-container">
+                    <img src="https://images.pexels.com/photos/1553150/pexels-photo-1553150.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1"
+                        alt="Welcome to GradSpace" style="max-width: 100%; border-radius: 5px;pointer-events: none;">
+                </div>
+                <p>Here's what you can do with GradSpace:</p>
+                <ul>
+                    <li>Connect with fellow students and alumni across various fields</li>
+                    <li>Share and discover internship and research opportunities</li>
+                    <li>Access resources tailored for both students and alumni</li>
+                    <li>Explore job boards, referrals, and career guidance to boost your career</li>
+                    <li>Showcase your achievements, projects, and career milestones</li>
+                    <li>Engage in real-time one-to-one chats</li>
+                </ul>
+                <p>To get started, simply log in to your account and complete your profile. If you have any questions,
+                    our support team is always here to help.</p>
+                <a href="http://localhost:5173/login" class="button">Log In to GradSpace</a>
+                <p>We're excited to see what you'll achieve with GradSpace!</p>
+                <p>Best regards,<br>The GradSpace Team</p>
+            </td>
+        </tr>
+        <!-- Footer Section -->
+        <tr>
+            <td class="footer">
+                <p>This is an automated message. Please do not reply to this email.</p>
+                <p>© 2025 GradSpace, All Rights Reserved.</p>
+                <p>College of Engineering Adoor</p>
+                <a href="https://gradspace.me/">gradspace.me</a>
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>
