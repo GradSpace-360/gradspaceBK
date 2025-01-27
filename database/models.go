@@ -31,7 +31,7 @@ type RegisterRequest struct {
 	BaseModel   `gorm:"embedded"`
 	FullName    string `gorm:"size:255;not null"`
 	Department  string `gorm:"size:255;not null"`
-	Batch       string `gorm:"size:255;not null"`
+	Batch              int    `gorm:"not null"`
 	Email       string `gorm:"size:255;unique;not null"`
 	PhoneNumber string `gorm:"size:20;not null"`
 	Role        string `gorm:"size:255;not null"`
