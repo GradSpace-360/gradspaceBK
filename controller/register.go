@@ -20,7 +20,7 @@ func RegisterRoutes(base *fiber.Group) error {
 type RegisterRequestData struct {
 	FullName    string `json:"full_name"`
 	Department  string `json:"department"`
-	Batch       string `json:"batch"`
+	Batch              int    `gorm:"not null"`
 	Email       string `json:"email"`
 	PhoneNumber string `json:"phone_number"`
 	Role        string `json:"role"`
@@ -64,55 +64,59 @@ type RegistrationAction struct {
 }
 
 func HandleRegistrationAction(c *fiber.Ctx) error {
-	requestId := c.Params("requestId")
-	var actionData RegistrationAction
+    requestId := c.Params("requestId")
+    var actionData RegistrationAction
 
-	if err := c.BodyParser(&actionData); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"success": false,
-			"message": "Invalid request body",
-		})
-	}
+    if err := c.BodyParser(&actionData); err != nil {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+            "success": false,
+            "message": "Invalid request body",
+        })
+    }
 
-	session := database.Session.Db
-	registerRequest := database.RegisterRequest{}
-	if session.Model(&database.RegisterRequest{}).Where("id = ?", requestId).First(&registerRequest).RowsAffected == 0 {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"success": false,
-			"message": "Registration request not found",
-		})
-	}
+    session := database.Session.Db
+    registerRequest := database.RegisterRequest{}
+    if session.Model(&database.RegisterRequest{}).Where("id = ?", requestId).First(&registerRequest).RowsAffected == 0 {
+        return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+            "success": false,
+            "message": "Registration request not found",
+        })
+    }
 
-	user := database.User{}
-	if session.Model(&database.User{}).Where("email = ?", registerRequest.Email).First(&user).RowsAffected == 0 {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"success": false,
-			"message": "User not found",
-		})
-	}
+    user := database.User{}
+    if session.Model(&database.User{}).Where("email = ?", registerRequest.Email).First(&user).RowsAffected == 0 {
+        return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+            "success": false,
+            "message": "User not found",
+        })
+    }
 
-	if actionData.Action == "approve" {
-		user.RegistrationStatus = "registered"
-		session.Save(&user)
-		session.Delete(&registerRequest)
-		return c.Status(fiber.StatusOK).JSON(fiber.Map{
-			"success": true,
-			"message": "User approved successfully.",
-		})
-	} else if actionData.Action == "reject" {
-		user.RegistrationStatus = "rejected"
-		session.Save(&user)
-		session.Delete(&registerRequest)
-		return c.Status(fiber.StatusOK).JSON(fiber.Map{
-			"success": true,
-			"message": "User rejected successfully.",
-		})
-	}
+    if actionData.Action == "approve" {
+        user.RegistrationStatus = "registered"
+        user.FullName = registerRequest.FullName
+        user.Department = registerRequest.Department
+        user.Batch = registerRequest.Batch
+        user.Role = registerRequest.Role
+        session.Save(&user)
+        session.Delete(&registerRequest)
+        return c.Status(fiber.StatusOK).JSON(fiber.Map{
+            "success": true,
+            "message": "User approved successfully.",
+        })
+    } else if actionData.Action == "reject" {
+        user.RegistrationStatus = "rejected"
+        session.Save(&user)
+        session.Delete(&registerRequest)
+        return c.Status(fiber.StatusOK).JSON(fiber.Map{
+            "success": true,
+            "message": "User rejected successfully.",
+        })
+    }
 
-	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-		"success": false,
-		"message": "Invalid action",
-	})
+    return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+        "success": false,
+        "message": "Invalid action",
+    })
 }
 
 // GET /api/v1/register/requests
