@@ -38,12 +38,59 @@ type RegisterRequest struct {
 }
 
 type Verification struct {
-	BaseModel         `gorm:"embedded"`
-	UserID            string `gorm:"not null;size:36"`
-	VerificationToken string `gorm:"size:6"`    
-	User              User   `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	ResetPasswordToken     string    `gorm:"size:36"`                       
-	ExpiresAt time.Time `gorm:"type:timestamp"`  
+	BaseModel          `gorm:"embedded"`
+	UserID             string    `gorm:"not null;size:36"`
+	VerificationToken  string    `gorm:"size:6"`
+	User               User      `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	ResetPasswordToken string    `gorm:"size:36"`
+	ExpiresAt          time.Time `gorm:"type:timestamp"`
+}
+
+type UserProfile struct {
+	UserID       string `gorm:"not null;size:36"`
+	ProfileImage string `gorm:"size:255"`
+	Headline     string `gorm:"size:100"`
+	About        string
+	Location     string `gorm:"size:100"`
+	Skills       []byte `gorm:"type:jsonb"`
+	Interests    []byte `gorm:"type:jsonb"`
+	User         User   `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+}
+
+type SocialLinks struct {
+	ID                 string `gorm:"type:uuid;primaryKey"`
+	UserID             string `gorm:"type:uuid;not null"`
+	GithubURL          string `gorm:"type:varchar(255)"`
+	LinkedinURL        string `gorm:"type:varchar(255)"`
+	InstagramURL       string `gorm:"type:varchar(255)"`
+	ResumeURL          string `gorm:"type:varchar(255)"`
+	PersonalWebsiteURL string `gorm:"type:varchar(255)"`
+	User               User   `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+}
+
+type Experience struct {
+	ID           string `gorm:"type:uuid;primaryKey"`
+	UserID       string `gorm:"type:uuid;not null"`
+	CompanyName  string `gorm:"type:varchar(255);not null"`
+	Position     string `gorm:"type:varchar(255);not null"`
+	StartDate    time.Time
+	EndDate      time.Time `gorm:"null"`
+	JobType      string    `gorm:"type:varchar(50)"`
+	LocationType string    `gorm:"type:varchar(50)"`
+	Location     string    `gorm:"type:varchar(255)"`
+	User         User      `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+}
+
+type Education struct {
+	ID              string    `gorm:"type:uuid;primaryKey"`
+	UserID          string    `gorm:"type:uuid;not null"`
+	InstitutionName string    `gorm:"type:varchar(255);not null"`
+	Course          string    `gorm:"type:varchar(255);not null"`
+	Location        string    `gorm:"type:varchar(255)"`
+	StartDate       time.Time `gorm:"not null"`
+	EndDate         time.Time `gorm:"not null"`
+	Grade           string    `gorm:"type:varchar(50)"`
+	User            User      `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
 func (base *BaseModel) BeforeCreate(tx *gorm.DB) error {
