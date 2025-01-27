@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -12,7 +11,8 @@ import (
 
 	"gradspaceBK/database"
 	"gradspaceBK/middlewares"
-	"gradspaceBK/services"
+
+	// "gradspaceBK/services"
 	"gradspaceBK/util"
 )
 
@@ -88,26 +88,24 @@ func SendVerificationOTP(c *fiber.Ctx) error {
 		}
 	}
 
-	// TODO: Implement email sending service to send OTP
+		// un comment this code on production environment.
 		// Use email service to send the OTP
-		subject := "Your Verification Code"
-		text := fmt.Sprintf("Your verification code is: %s", otp)
-		data := map[string]string{
-			"VerificationCode": otp,
-		}
-		html, err := util.RenderTemplate("templates/verification_email.html", data)
-		if err != nil {
-   			 return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-      			  "message": "Failed to render email template",
-    		})
-		}
-		if err := services.SendEmail(user.Email, subject, text, html); err != nil {
-			fmt.Println("mail error")
-			fmt.Println(err)
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"message": "Failed to send OTP email",
-			})
-		}
+		// subject := "Your Verification Code"
+		// text := fmt.Sprintf("Your verification code is: %s", otp)
+		// data := map[string]string{
+		// 	"VerificationCode": otp,
+		// }
+		// html, err := util.RenderTemplate("templates/verification_email.html", data)
+		// if err != nil {
+   		// 	 return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+      	// 		  "message": "Failed to render email template",
+    	// 	})
+		// }
+		// if err := services.SendEmail(user.Email, subject, text, html); err != nil {
+		// 	return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+		// 		"message": "Failed to send OTP email",
+		// 	})
+		// }
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "OTP sent successfully",
 	})
@@ -175,24 +173,24 @@ func VerifyEmail(c *fiber.Ctx) error {
             "message": "Failed to verify user",
         })
     }
+    // un comment this code on production environment.
+    // subject := "Welcome to GradSpace!"
+    // data := map[string]string{
+    //     "userName": user.UserName, 
+    // }
+    // html, err := util.RenderTemplate("templates/welcome_email.html", data)
+    // if err != nil {
+    //     return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+    //         "message": "Failed to render welcome email template",
+    //     })
+    // }
 
-    subject := "Welcome to GradSpace!"
-    data := map[string]string{
-        "userName": user.UserName, 
-    }
-    html, err := util.RenderTemplate("templates/welcome_email.html", data)
-    if err != nil {
-        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-            "message": "Failed to render welcome email template",
-        })
-    }
-
-    text := fmt.Sprintf("Hello %s,\n\nWelcome to GradSpace! We're thrilled to have you join our community of graduate students and researchers.", user.UserName)
-    if err := services.SendEmail(user.Email, subject, text, html); err != nil {
-        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-            "message": "Failed to send welcome email",
-        })
-    }
+    // text := fmt.Sprintf("Hello %s,\n\nWelcome to GradSpace! We're thrilled to have you join our community of graduate students and researchers.", user.UserName)
+    // if err := services.SendEmail(user.Email, subject, text, html); err != nil {
+    //     return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+    //         "message": "Failed to send welcome email",
+    //     })
+    // }
 
     return c.Status(fiber.StatusOK).JSON(fiber.Map{
         "message": "Email verified successfully",
@@ -229,27 +227,27 @@ func ForgotPassword(c *fiber.Ctx) error {
     })
 
     // Generate the reset password link with the reset token
-	// TODO: update the link to your frontend deployment URL
-    resetPasswordLink := fmt.Sprintf("http://localhost:5173/reset-Password/%s", resetToken)
+	// un comment this code on production environment.
+    // resetPasswordLink := fmt.Sprintf("http://localhost:5173/reset-Password/%s", resetToken)
 
-    data := map[string]string{
-        "ResetPasswordLink": resetPasswordLink,
-        "Username":          user.UserName, 
-    }
-    html, err := util.RenderTemplate("templates/reset_password_email.html", data)
-    if err != nil {
-        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-            "message": "Failed to render email template",
-        })
-    }
+    // data := map[string]string{
+    //     "ResetPasswordLink": resetPasswordLink,
+    //     "Username":          user.UserName, 
+    // }
+    // html, err := util.RenderTemplate("templates/reset_password_email.html", data)
+    // if err != nil {
+    //     return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+    //         "message": "Failed to render email template",
+    //     })
+    // }
 
-    subject := "Reset Your Password"
-    text := fmt.Sprintf("Please click the following link to reset your password: %s", resetPasswordLink)
-    if err := services.SendEmail(user.Email, subject, text, html); err != nil {
-        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-            "message": "Failed to send reset password email",
-        })
-    }
+    // subject := "Reset Your Password"
+    // text := fmt.Sprintf("Please click the following link to reset your password: %s", resetPasswordLink)
+    // if err := services.SendEmail(user.Email, subject, text, html); err != nil {
+    //     return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+    //         "message": "Failed to send reset password email",
+    //     })
+    // }
 
     return c.Status(fiber.StatusOK).JSON(fiber.Map{
         "message": "Reset password email sent",
