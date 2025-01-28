@@ -31,7 +31,7 @@ type RegisterRequest struct {
 	BaseModel   `gorm:"embedded"`
 	FullName    string `gorm:"size:255;not null"`
 	Department  string `gorm:"size:255;not null"`
-	Batch              int    `gorm:"not null"`
+	Batch       int    `gorm:"not null"`
 	Email       string `gorm:"size:255;unique;not null"`
 	PhoneNumber string `gorm:"size:20;not null"`
 	Role        string `gorm:"size:255;not null"`
@@ -47,29 +47,30 @@ type Verification struct {
 }
 
 type UserProfile struct {
+	BaseModel    `gorm:"embedded"`
 	UserID       string `gorm:"not null;size:36"`
-	ProfileImage string `gorm:"size:255"`
-	Headline     string `gorm:"size:100"`
-	About        string
-	Location     string `gorm:"size:100"`
-	Skills       []byte `gorm:"type:jsonb"`
-	Interests    []byte `gorm:"type:jsonb"`
+	ProfileImage string `gorm:"size:255;null"`
+	Headline     string `gorm:"size:100;null"`
+	About        string `gorm:"size:500;null"`
+	Location     string `gorm:"size:100;null"`
+	Skills       []byte `gorm:"type:jsonb;null"`
+	Interests    []byte `gorm:"type:jsonb;null"`
 	User         User   `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
 type SocialLinks struct {
-	ID                 string `gorm:"type:uuid;primaryKey"`
+	BaseModel          `gorm:"embedded"`
 	UserID             string `gorm:"type:uuid;not null"`
-	GithubURL          string `gorm:"type:varchar(255)"`
-	LinkedinURL        string `gorm:"type:varchar(255)"`
-	InstagramURL       string `gorm:"type:varchar(255)"`
-	ResumeURL          string `gorm:"type:varchar(255)"`
-	PersonalWebsiteURL string `gorm:"type:varchar(255)"`
+	GithubURL          string `gorm:"type:varchar(255);null"`
+	LinkedinURL        string `gorm:"type:varchar(255);null"`
+	InstagramURL       string `gorm:"type:varchar(255);null"`
+	ResumeURL          string `gorm:"type:varchar(255);null"`
+	PersonalWebsiteURL string `gorm:"type:varchar(255);null"`
 	User               User   `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
 type Experience struct {
-	ID           string `gorm:"type:uuid;primaryKey"`
+	BaseModel    `gorm:"embedded"`
 	UserID       string `gorm:"type:uuid;not null"`
 	CompanyName  string `gorm:"type:varchar(255);not null"`
 	Position     string `gorm:"type:varchar(255);not null"`
@@ -82,7 +83,7 @@ type Experience struct {
 }
 
 type Education struct {
-	ID              string    `gorm:"type:uuid;primaryKey"`
+	BaseModel       `gorm:"embedded"`
 	UserID          string    `gorm:"type:uuid;not null"`
 	InstitutionName string    `gorm:"type:varchar(255);not null"`
 	Course          string    `gorm:"type:varchar(255);not null"`
