@@ -1,10 +1,12 @@
 package database
 
 import (
+	"fmt"
 	"log"
+	"os"
 	"time"
 
-	"gorm.io/driver/sqlite"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -15,7 +17,19 @@ type Dbinstance struct {
 var Session Dbinstance
 
 func DBConnection() {
-	db, err := gorm.Open(sqlite.Open("test.db"), &gorm.Config{})
+	host := os.Getenv("DATABASE_HOST")
+	user := os.Getenv("DATABASE_USER")
+	password := os.Getenv("DATABASE_PASSWORD")
+	dbname := os.Getenv("DATABASE_NAME")
+	port := os.Getenv("DATABASE_PORT")
+
+	postgresDSN := fmt.Sprintf(
+		"host=%s user=%s password=%s dbname=%s port=%s",
+		host, user, password, dbname, port,
+	)
+	db, err := gorm.Open(postgres.Open(postgresDSN), &gorm.Config{
+		SkipDefaultTransaction: true,
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
