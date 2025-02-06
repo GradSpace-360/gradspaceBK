@@ -37,7 +37,7 @@ type Verification struct {
 type User struct {
 	BaseModel          `gorm:"embedded"`
 	FullName           string `gorm:"size:255"`
-	UserName           string `gorm:"unique;not null;size:255"`
+	UserName           *string `gorm:"unique;size:255;default:null;null"` // Remove "not null"
 	Department         string `gorm:"size:255"`
 	Batch              int    `gorm:"not null"`
 	Role               string `gorm:"size:255"`
@@ -45,7 +45,7 @@ type User struct {
 	IsOnboard          bool   `gorm:"not null"`
 	RegistrationStatus string `gorm:"not null;size:100;default:'not_registered'"`
 	Email              string `gorm:"unique;not null;size:255"`
-	Password           string `gorm:"not null"`
+    Password           string `gorm:"size:255"`        // Remove "not null"
 }
 
 type UserProfile struct {
