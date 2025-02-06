@@ -419,7 +419,7 @@ func SignUp(c *fiber.Ctx) error {
 	newUser := database.User{
 		Email:    email,
 		Password: hashed_password,
-		UserName: username,
+		UserName: &username,
 	}
 	if err := session.Create(&newUser).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
