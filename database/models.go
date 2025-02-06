@@ -13,19 +13,7 @@ type BaseModel struct {
 	UpdatedAt time.Time
 }
 
-type User struct {
-	BaseModel          `gorm:"embedded"`
-	FullName           string `gorm:"size:255"`
-	UserName           string `gorm:"unique;not null;size:255"`
-	Department         string `gorm:"size:255"`
-	Batch              int    `gorm:"not null"`
-	Role               string `gorm:"size:255"`
-	IsVerified         bool   `gorm:"not null"`
-	IsOnboard          bool   `gorm:"not null"`
-	RegistrationStatus string `gorm:"not null;size:100;default:'not_registered'"`
-	Email              string `gorm:"unique;not null;size:255"`
-	Password           string `gorm:"not null"`
-}
+
 
 type RegisterRequest struct {
 	BaseModel   `gorm:"embedded"`
@@ -46,9 +34,23 @@ type Verification struct {
 	ExpiresAt          time.Time `gorm:"type:timestamp"`
 }
 
+type User struct {
+	BaseModel          `gorm:"embedded"`
+	FullName           string `gorm:"size:255"`
+	UserName           string `gorm:"unique;not null;size:255"`
+	Department         string `gorm:"size:255"`
+	Batch              int    `gorm:"not null"`
+	Role               string `gorm:"size:255"`
+	IsVerified         bool   `gorm:"not null"`
+	IsOnboard          bool   `gorm:"not null"`
+	RegistrationStatus string `gorm:"not null;size:100;default:'not_registered'"`
+	Email              string `gorm:"unique;not null;size:255"`
+	Password           string `gorm:"not null"`
+}
+
 type UserProfile struct {
 	BaseModel    `gorm:"embedded"`
-	UserID       string `gorm:"not null;size:36"`
+	UserID       string `gorm:"size:36;not null"`
 	ProfileImage string `gorm:"size:255;null"`
 	Headline     string `gorm:"size:100;null"`
 	About        string `gorm:"size:500;null"`
@@ -60,38 +62,38 @@ type UserProfile struct {
 
 type SocialLinks struct {
 	BaseModel          `gorm:"embedded"`
-	UserID             string `gorm:"type:uuid;not null"`
-	GithubURL          string `gorm:"type:varchar(255);null"`
-	LinkedinURL        string `gorm:"type:varchar(255);null"`
-	InstagramURL       string `gorm:"type:varchar(255);null"`
-	ResumeURL          string `gorm:"type:varchar(255);null"`
-	PersonalWebsiteURL string `gorm:"type:varchar(255);null"`
+	UserID             string `gorm:"size:36;not null"`
+	GithubURL          string `gorm:"size:255;null"`
+	LinkedinURL        string `gorm:"size:255;null"`
+	InstagramURL       string `gorm:"size:255;null"`
+	ResumeURL          string `gorm:"size:255;null"`
+	PersonalWebsiteURL string `gorm:"size:255;null"`
 	User               User   `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
 type Experience struct {
 	BaseModel    `gorm:"embedded"`
-	UserID       string `gorm:"type:uuid;not null"`
-	CompanyName  string `gorm:"type:varchar(255);not null"`
-	Position     string `gorm:"type:varchar(255);not null"`
+	UserID       string     `gorm:"size:36;not null"`
+	CompanyName  string     `gorm:"size:255;not null"`
+	Position     string     `gorm:"size:255;not null"`
 	StartDate    time.Time
-	EndDate      time.Time `gorm:"null"`
-	JobType      string    `gorm:"type:varchar(50)"`
-	LocationType string    `gorm:"type:varchar(50)"`
-	Location     string    `gorm:"type:varchar(255)"`
-	User         User      `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	EndDate      *time.Time `gorm:"null"`
+	JobType      string     `gorm:"size:50"`
+	LocationType string     `gorm:"size:50"`
+	Location     string     `gorm:"size:255"`
+	User         User       `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
 type Education struct {
 	BaseModel       `gorm:"embedded"`
-	UserID          string    `gorm:"type:uuid;not null"`
-	InstitutionName string    `gorm:"type:varchar(255);not null"`
-	Course          string    `gorm:"type:varchar(255);not null"`
-	Location        string    `gorm:"type:varchar(255)"`
-	StartDate       time.Time `gorm:"not null"`
-	EndDate         time.Time `gorm:"not null"`
-	Grade           string    `gorm:"type:varchar(50)"`
-	User            User      `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	UserID          string     `gorm:"size:36;not null"`
+	InstitutionName string     `gorm:"size:255;not null"`
+	Course          string     `gorm:"size:255;not null"`
+	Location        string     `gorm:"size:255"`
+	StartDate       time.Time
+	EndDate         time.Time `gorm:"null"`
+	Grade           string     `gorm:"size:50"`
+	User            User       `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
 func (base *BaseModel) BeforeCreate(tx *gorm.DB) error {
@@ -104,5 +106,5 @@ func (base *BaseModel) BeforeCreate(tx *gorm.DB) error {
 }
 
 func MigrateDB(db *gorm.DB) error {
-	return db.AutoMigrate(&User{}, &RegisterRequest{}, &Verification{})
+	return db.AutoMigrate(&User{}, &RegisterRequest{}, &Verification{}, &UserProfile{}, &SocialLinks{}, &Experience{}, &Education{})
 }
