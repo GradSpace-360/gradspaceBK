@@ -1,7 +1,10 @@
 package controller
 
 import (
+	"encoding/json"
 	"fmt"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -14,6 +17,7 @@ import (
 func OnboardRoutes(base *fiber.Group) error {
 	onboard := base.Group("/onboard")
 	onboard.Use(middlewares.AuthMiddleware)
+	onboard.Post("/complete", CompleteOnboarding)
 	onboard.Post("/user-profile", CreateUserProfile)
 	onboard.Post("/social-links", CreateSocialLinks)
 	onboard.Post("/experience", CreateExperience)
@@ -21,6 +25,133 @@ func OnboardRoutes(base *fiber.Group) error {
 
 	return nil
 }
+
+
+func CompleteOnboarding(c *fiber.Ctx) error {
+	userData := c.Locals("user_data").(jwt.MapClaims)
+	userID := userData["user_id"].(string)
+
+	form, err := c.MultipartForm()
+	if err != nil {
+		fmt.Println("Error: Invalid form data", err)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid form data"})
+	}
+
+	var profileImagePath string
+	if profileImage, err := c.FormFile("profile_image"); err == nil {
+		uploadDir := "./uploads/profile"
+		fileExt := filepath.Ext(profileImage.Filename)
+		newFileName := fmt.Sprintf("%s%s", userID, fileExt)
+		savePath := filepath.Join(uploadDir, newFileName)
+
+		if err := c.SaveFile(profileImage, savePath); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save image"})
+		}
+		profileImagePath = savePath
+	}
+
+	skills := form.Value["skills[]"]
+	interests := form.Value["interests[]"]
+	skillsBytes, err := json.Marshal(skills)
+	if err != nil {
+		fmt.Println("Error marshalling skills:", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to marshal skills"})
+	}
+	interestsBytes, err := json.Marshal(interests)
+	if err != nil {
+		fmt.Println("Error marshalling interests:", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to marshal interests"})
+	}
+
+	// Save User Profile
+	session := database.Session.Db
+	userProfile := database.UserProfile{
+		UserID:       userID,
+		ProfileImage: profileImagePath,
+		Headline:     c.FormValue("headline"),
+		About:        c.FormValue("about"),
+		Location:     c.FormValue("location"),
+		Skills:       skillsBytes,
+		Interests:    interestsBytes,
+	}
+	if err := session.Create(&userProfile).Error; err != nil {
+		fmt.Println("Error saving user profile:", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Profile creation failed"})
+	}
+
+	var socialLinksMap map[string]string
+	if socialLinksJSON, ok := form.Value["social_links"]; ok && len(socialLinksJSON) > 0 {
+		if err := json.Unmarshal([]byte(socialLinksJSON[0]), &socialLinksMap); err != nil {
+			fmt.Println("Error parsing social links JSON:", err)
+		}
+	}
+
+	// Save Social Links
+	socialLinks := database.SocialLinks{
+		UserID:             userID,
+		GithubURL:          socialLinksMap["github"],
+		LinkedinURL:        socialLinksMap["linkedin"],
+		InstagramURL:       socialLinksMap["instagram"],
+		ResumeURL:          socialLinksMap["resume"],
+		PersonalWebsiteURL: socialLinksMap["website"],
+	}
+
+	if err := session.Create(&socialLinks).Error; err != nil {
+		fmt.Println("Error saving social links:", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Social links creation failed"})
+	}
+
+	experiences := []string{}
+	for key, value := range form.Value {
+		if strings.HasPrefix(key, "experiences[") {
+			experiences = append(experiences, value...)
+		}
+	}
+	// Save Experiences
+	if len(experiences) > 0 {
+		for _, exp := range experiences {
+			var expData database.Experience
+			if err := json.Unmarshal([]byte(exp), &expData); err != nil {
+				fmt.Println("Error parsing experience JSON:", err)
+				continue
+			}
+			expData.UserID = userID
+			if err := session.Create(&expData).Error; err != nil {
+				fmt.Println("Error saving experience:", err)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create experience"})
+			}
+		}
+	}
+
+	educations := []string{}
+	for key, value := range form.Value {
+		if strings.HasPrefix(key, "educations[") {
+			educations = append(educations, value...)
+		}
+	}
+	// Save Educations
+	if len(educations) > 0 {
+		for _, edu := range educations {
+			var eduData database.Education
+			if err := json.Unmarshal([]byte(edu), &eduData); err != nil {
+				fmt.Println("Error parsing education JSON:", err)
+				continue
+			}
+			eduData.UserID = userID
+			if err := session.Create(&eduData).Error; err != nil {
+				fmt.Println("Error saving education:", err)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create education"})
+			}
+		}
+	}
+	// Update user's onboarding status
+	if err := session.Model(&database.User{}).Where("id = ?", userID).Update("is_onboard", true).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update onboarding status"})
+	}
+	return c.JSON(fiber.Map{"success": true})
+}
+
+
 
 func CreateUserProfile(c *fiber.Ctx) error {
 	var userProfile database.UserProfile
@@ -144,7 +275,7 @@ func CreateExperience(c *fiber.Ctx) error {
 		CompanyName:  formated_data.CompanyName,
 		Position:     formated_data.Position,
 		StartDate:    formated_data.StartDate,
-		EndDate:      *formated_data.EndDate,
+		EndDate:      formated_data.EndDate,
 		JobType:      formated_data.JobType,
 		LocationType: formated_data.LocationType,
 		Location:     formated_data.Location,
