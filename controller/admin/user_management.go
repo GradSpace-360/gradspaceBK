@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"gradspaceBK/database"
+	// "gradspaceBK/services"
+	// "gradspaceBK/util"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -294,6 +296,35 @@ func PerformUserAction(c *fiber.Ctx) error {
 			"message": "Failed to perform action",
 		})
 	}
+	// uncomment this block if you want to send email to user on removal, also uncomment the import statements
+	// uncomment in production only.
+	// if for test purposes, you can uncomment this block but ensure valid email is used.
+	// if actionRequest.Action == "remove" {
+	// 	subject := "Important: Your GradSpace Account Has Been Removed"
+
+	// 	data := map[string]string{
+	// 		"userName": *user.UserName,
+	// 		"reason":   actionRequest.Reason,
+	// 	}
+	// 	html, err := util.RenderTemplate("templates/user_removal_email.html", data)
+	// 	if err != nil {
+	// 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+	// 			"message": "Failed to render Removal email template",
+	// 		})
+	// 	}
+
+	// 	text := fmt.Sprintf(
+	// 		"Hello %s,\n\nWe regret to inform you that your account has been removed from the GradSpace platform for the following reason: %s.\nIf you have any questions or concerns, please contact our support team.",
+	// 		*user.UserName,
+	// 		actionRequest.Reason,
+	// 	)
+
+	// 	if err := services.SendEmail(user.Email, subject, text, html); err != nil {
+	// 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+	// 			"message": "Failed to send Removal email",
+	// 		})
+	// 	}
+	// }
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"success": true,
