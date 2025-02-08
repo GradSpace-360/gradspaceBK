@@ -18,5 +18,6 @@ func SetupRouter(app *fiber.App) {
 	AuthRoutes(base_api.(*fiber.Group))
 	RegisterRoutes(base_api.(*fiber.Group))
 	OnboardRoutes(base_api.(*fiber.Group))
-	admin.AdminUserManagementRoutes(base_api.(*fiber.Group));
+	admin.AdminUserManagementRoutes(base_api.(*fiber.Group))
+	admin.RegisterAnalyticsRoutes(base_api.(*fiber.Group)) 
 }
