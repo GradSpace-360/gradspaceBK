@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"gradspaceBK/database"
-	// "gradspaceBK/services"
-	// "gradspaceBK/util"
+	"gradspaceBK/services"
+	"gradspaceBK/util"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -228,106 +228,114 @@ func GetUsers(c *fiber.Ctx) error {
 }
 
 func PerformUserAction(c *fiber.Ctx) error {
-	userID := c.Params("id")
-	if userID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"success": false,
-			"message": "User ID is required",
-		})
-	}
+    userID := c.Params("id")
+    if userID == "" {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+            "success": false,
+            "message": "User ID is required",
+        })
+    }
 
-	var actionRequest UserActionRequest
-	if err := c.BodyParser(&actionRequest); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"success": false,
-			"message": "Invalid request body",
-		})
-	}
+    var actionRequest UserActionRequest
+    if err := c.BodyParser(&actionRequest); err != nil {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+            "success": false,
+            "message": "Invalid request body",
+        })
+    }
 
-	session := database.Session.Db
-	var user database.User
-	if err := session.First(&user, "id = ?", userID).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"success": false,
-			"message": "User not found",
-		})
-	}
+    session := database.Session.Db
+    var user database.User
+    if err := session.First(&user, "id = ?", userID).Error; err != nil {
+        return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+            "success": false,
+            "message": "User not found",
+        })
+    }
 
-	switch actionRequest.Action {
-	case "promote":
-		if user.Role != "Student" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"success": false,
-				"message": "Invalid action for the current user role",
-			})
-		}
-		user.Role = "Alumni"
-	case "demote":
-		if user.Role != "Alumni" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"success": false,
-				"message": "Invalid action for the current user role",
-			})
-		}
-		user.Role = "Student"
-	case "remove":
-		if actionRequest.Reason == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"success": false,
-				"message": "Reason is required for this action",
-			})
-		}
-		if err := session.Delete(&user).Error; err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"success": false,
-				"message": "Failed to remove user",
-			})
-		}
-	default:
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"success": false,
-			"message": "Invalid action",
-		})
-	}
+    switch actionRequest.Action {
+    case "promote":
+        if user.Role != "Student" {
+            return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+                "success": false,
+                "message": "Invalid action for the current user role",
+            })
+        }
+        user.Role = "Alumni"
+        if err := session.Save(&user).Error; err != nil {
+            return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+                "success": false,
+                "message": "Failed to perform action",
+            })
+        }
+    case "demote":
+        if user.Role != "Alumni" {
+            return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+                "success": false,
+                "message": "Invalid action for the current user role",
+            })
+        }
+        user.Role = "Student"
+        if err := session.Save(&user).Error; err != nil {
+            return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+                "success": false,
+                "message": "Failed to perform action",
+            })
+        }
+    case "remove":
+        if actionRequest.Reason == "" {
+            return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+                "success": false,
+                "message": "Reason is required for this action",
+            })
+        }
+        if err := session.Delete(&user).Error; err != nil {
+            return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+                "success": false,
+                "message": "Failed to remove user",
+            })
+        }
+        
+		 // Prepare userName safely
+		 userName := "User"
+		 if user.UserName != nil && *user.UserName != "" {
+			 userName = *user.UserName
+		 }
+		// Uncomment this block if you want to send an email on removal, and ensure valid email is used.
+        subject := "Important: Your GradSpace Account Has Been Removed"
+        data := map[string]string{
+            "userName": userName,
+            "reason":   actionRequest.Reason,
+        }
+        html, err := util.RenderTemplate("templates/user_removal_email.html", data)
+        if err != nil {
+            return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+                "message": "Failed to render Removal email template",
+            })
+        }
+		text := fmt.Sprintf(
+			"Hello %s,\n\nWe regret to inform you that your account has been removed from the GradSpace platform for the following reason: %s.\nIf you have any questions or concerns, please contact our support team.",
+			userName,
+			actionRequest.Reason,
+		)
+        if err := services.SendEmail(user.Email, subject, text, html); err != nil {
+            return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+                "message": "Failed to send Removal email",
+            })
+        }
+        return c.Status(fiber.StatusOK).JSON(fiber.Map{
+            "success": true,
+            "message": "User removed successfully",
+        })
+    default:
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+            "success": false,
+            "message": "Invalid action",
+        })
+    }
 
-	if err := session.Save(&user).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"success": false,
-			"message": "Failed to perform action",
-		})
-	}
-	// uncomment this block if you want to send email to user on removal, also uncomment the import statements
-	// uncomment in production only.
-	// if for test purposes, you can uncomment this block but ensure valid email is used.
-	// if actionRequest.Action == "remove" {
-	// 	subject := "Important: Your GradSpace Account Has Been Removed"
-
-	// 	data := map[string]string{
-	// 		"userName": *user.UserName,
-	// 		"reason":   actionRequest.Reason,
-	// 	}
-	// 	html, err := util.RenderTemplate("templates/user_removal_email.html", data)
-	// 	if err != nil {
-	// 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-	// 			"message": "Failed to render Removal email template",
-	// 		})
-	// 	}
-
-	// 	text := fmt.Sprintf(
-	// 		"Hello %s,\n\nWe regret to inform you that your account has been removed from the GradSpace platform for the following reason: %s.\nIf you have any questions or concerns, please contact our support team.",
-	// 		*user.UserName,
-	// 		actionRequest.Reason,
-	// 	)
-
-	// 	if err := services.SendEmail(user.Email, subject, text, html); err != nil {
-	// 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-	// 			"message": "Failed to send Removal email",
-	// 		})
-	// 	}
-	// }
-
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"message": "Action performed successfully",
-	})
+    return c.Status(fiber.StatusOK).JSON(fiber.Map{
+        "success": true,
+        "message": "Action performed successfully",
+    })
 }
