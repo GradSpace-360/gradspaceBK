@@ -38,6 +38,7 @@ func Migrate() {
 func RunServer() {
 	database.DBConnection()
 	app := fiber.New()
+	app.Static("/api/v1/uploads", "./uploads") // Makes 'uploads' folder accessible via URLs
 	app.Use(logger.New())
 	controller.SetupRouter(app)
 	app.Listen(":8003")
