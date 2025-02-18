@@ -1,6 +1,7 @@
 package database
 
 import (
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -96,6 +97,80 @@ type Education struct {
 	User            User       `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
+type NotificationType string
+
+const (
+	NotificationTypeLike    NotificationType = "LIKE"
+	NotificationTypeComment NotificationType = "COMMENT"
+	NotificationTypeFollow  NotificationType = "FOLLOW"
+)
+
+type Post struct {
+	BaseModel
+	AuthorID string     `gorm:"size:36;not null;index:idx_post_author"`  // Explicit index name
+	Content  *string    `gorm:"type:text"`                               // Nullable text content
+	Image    *string    `gorm:"size:255"`                                // Nullable image URL
+	Author   User       `gorm:"foreignKey:AuthorID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Comments []Comment  `gorm:"foreignKey:PostID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Likes    []Like     `gorm:"foreignKey:PostID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+}
+
+type Comment struct {
+	BaseModel
+	Content  string `gorm:"type:text;not null"`
+	AuthorID string `gorm:"size:36;not null;index:idx_comment_author"`
+	PostID   string `gorm:"size:36;not null;index:idx_comment_post"`
+	Author   User   `gorm:"foreignKey:AuthorID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Post     Post   `gorm:"foreignKey:PostID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+}
+
+type Like struct {
+	BaseModel
+	PostID string `gorm:"size:36;not null;uniqueIndex:idx_like_post_user"`
+	UserID string `gorm:"size:36;not null;uniqueIndex:idx_like_post_user"`
+	User   User   `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Post   Post   `gorm:"foreignKey:PostID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+}
+
+
+type Follow struct {
+	BaseModel      // Inherits CreatedAt
+	FollowerID  string `gorm:"size:36;primaryKey"`
+	FollowingID string `gorm:"size:36;primaryKey"`
+	Follower    User   `gorm:"foreignKey:FollowerID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Following   User   `gorm:"foreignKey:FollowingID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+}
+
+
+type Notification struct {
+	BaseModel
+	UserID    string           `gorm:"size:36;not null;index:idx_notification_user"`
+	CreatorID string           `gorm:"size:36;not null"`
+	Type      NotificationType `gorm:"size:50;not null"`
+	Read      bool             `gorm:"not null;default:false"`
+	PostID    *string          `gorm:"size:36"`  // Nullable (for FOLLOW-type notifications)
+	CommentID *string          `gorm:"size:36"`  // Nullable (for LIKE/FOLLOW notifications)
+	
+	// Relationships
+	User      User     `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Creator   User     `gorm:"foreignKey:CreatorID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Post      *Post    `gorm:"foreignKey:PostID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	Comment   *Comment `gorm:"foreignKey:CommentID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+
+	// Composite index for sorting
+	CreatedAt time.Time `gorm:"index:idx_notification_user_created,sort:desc"`
+}
+
+// Validate notification type before creation
+func (n *Notification) BeforeCreate(tx *gorm.DB) error {
+	switch n.Type {
+	case NotificationTypeLike, NotificationTypeComment, NotificationTypeFollow:
+		return nil
+	default:
+		return errors.New("invalid notification type")
+	}
+}
+
 func (base *BaseModel) BeforeCreate(tx *gorm.DB) error {
 	*base = BaseModel{
 		ID:        uuid.New().String(),
@@ -106,5 +181,10 @@ func (base *BaseModel) BeforeCreate(tx *gorm.DB) error {
 }
 
 func MigrateDB(db *gorm.DB) error {
-	return db.AutoMigrate(&User{}, &RegisterRequest{}, &Verification{}, &UserProfile{}, &SocialLinks{}, &Experience{}, &Education{})
+	// Manually create the composite index for sorting
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_notification_user_created ON notifications (user_id, created_at DESC)")
+	return db.AutoMigrate(&User{}, &RegisterRequest{}, &Verification{}, &UserProfile{}, &SocialLinks{}, &Experience{}, &Education{},
+		&Post{},&Comment{},&Like{},&Follow{},&Notification{},
+	)
 }
+
