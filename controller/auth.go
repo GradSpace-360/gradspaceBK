@@ -313,68 +313,79 @@ type LoginData struct {
 }
 
 func Login(c *fiber.Ctx) error {
-	var formated_data LoginData
-	var user database.User
-	if err := c.BodyParser(&formated_data); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"message": "Internal Server Error",
-		})
-	}
-	session := database.Session.Db
+    var formated_data LoginData
+    var user database.User
+    if err := c.BodyParser(&formated_data); err != nil {
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+            "message": "Internal Server Error",
+        })
+    }
+    session := database.Session.Db
 
-	email := formated_data.Email
-	password := formated_data.Password
+    email := formated_data.Email
+    password := formated_data.Password
 
-	if result := session.Model(&database.User{}).Where("email = ?", email).First(&user); result.Error == nil {
-		if err := util.ComparePassword(password, user.Password); err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"message": "Invalid Username or Password",
-			})
-		}
-		if token, err := util.GenerateToken(user.ID); err == nil {
-			access_cookie := &fiber.Cookie{
-				Name:     "access_token",
-				Value:    token["access_token"],
-				HTTPOnly: true,
-				Secure:   false,
-				SameSite: "None",
-			}
-			refresh_cookie := &fiber.Cookie{
-				Name:     "refresh_token",
-				Value:    token["refresh_token"],
-				HTTPOnly: true,
-				Secure:   false,
-				SameSite: "None",
-			}
-			c.Cookie(access_cookie)
-			c.Cookie(refresh_cookie)
-			return c.Status(fiber.StatusOK).JSON(fiber.Map{
-				"success": true,
-				"message": "Login Successful",
-				"user": map[string]interface{}{
-						"id":                  user.ID,
-						"username":            *user.UserName,
-						"full_name":           user.FullName,
-						"role":                user.Role,
-						"department":          user.Department,
-						"batch":               user.Batch,
-						"email":               user.Email,
-						"is_verified":         user.IsVerified,
-						"is_onboard":          user.IsOnboard,
-						"registration_status": user.RegistrationStatus,
-						"created_at":          user.CreatedAt,
-						"updated_at":          user.UpdatedAt,
-					},
-			})
-		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"message": "Internal Server Error",
-		})
+    if result := session.Model(&database.User{}).Where("email = ?", email).First(&user); result.Error == nil {
+        if err := util.ComparePassword(password, user.Password); err != nil {
+            return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+                "message": "Invalid Username or Password",
+            })
+        }
 
-	}
-	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-		"message": "Invalid Username or Password",
-	})
+        // Retrieve profile image from UserProfile table.
+        var profile database.UserProfile
+        profileResult := session.Model(&database.UserProfile{}).
+            Where("user_id = ?", user.ID).
+            First(&profile)
+        profileImage := ""
+        if profileResult.Error == nil {
+            profileImage = profile.ProfileImage
+        }
+
+        if token, err := util.GenerateToken(user.ID); err == nil {
+            access_cookie := &fiber.Cookie{
+                Name:     "access_token",
+                Value:    token["access_token"],
+                HTTPOnly: true,
+                Secure:   false,
+                SameSite: "None",
+            }
+            refresh_cookie := &fiber.Cookie{
+                Name:     "refresh_token",
+                Value:    token["refresh_token"],
+                HTTPOnly: true,
+                Secure:   false,
+                SameSite: "None",
+            }
+            c.Cookie(access_cookie)
+            c.Cookie(refresh_cookie)
+            return c.Status(fiber.StatusOK).JSON(fiber.Map{
+                "success": true,
+                "message": "Login Successful",
+                "user": map[string]interface{}{
+                    "id":                  user.ID,
+                    "username":            *user.UserName,
+                    "full_name":           user.FullName,
+                    "role":                user.Role,
+                    "department":          user.Department,
+                    "batch":               user.Batch,
+                    "email":               user.Email,
+                    "is_verified":         user.IsVerified,
+                    "is_onboard":          user.IsOnboard,
+                    "registration_status": user.RegistrationStatus,
+                    "created_at":          user.CreatedAt,
+                    "updated_at":          user.UpdatedAt,
+                    "profile_image":       profileImage,
+                },
+            })
+        }
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+            "message": "Internal Server Error",
+        })
+    }
+    return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+        "message": "Invalid Username or Password",
+    })
 }
 
 type SignUpData struct {
@@ -463,27 +474,43 @@ func SignUp(c *fiber.Ctx) error {
 }
 
 func CheckAuth(c *fiber.Ctx) error {
-	user_data := c.Locals("user_data").(jwt.MapClaims)
-	session := database.Session.Db
-	user := database.User{}
-	session.Model(&database.User{}).Where("id = ?", user_data["user_id"].(string)).First(&user)
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message": "Authorized",
-		"user": map[string]interface{}{
-			"id":                  user.ID,
-			"username":            *user.UserName,
-			"full_name":           user.FullName,
-			"role":                user.Role,
-			"department":          user.Department,
-			"batch":               user.Batch,
-			"email":               user.Email,
-			"is_verified":         user.IsVerified,
-			"is_onboard":          user.IsOnboard,
-			"registration_status": user.RegistrationStatus,
-			"created_at":          user.CreatedAt,
-			"updated_at":          user.UpdatedAt,
-		},
-	})
+    user_data := c.Locals("user_data").(jwt.MapClaims)
+    session := database.Session.Db
+
+    // Retrieve the user details.
+    user := database.User{}
+    session.Model(&database.User{}).
+        Where("id = ?", user_data["user_id"].(string)).
+        First(&user)
+
+    // Retrieve the user's profile image.
+    var profile database.UserProfile
+    result := session.Model(&database.UserProfile{}).
+        Where("user_id = ?", user.ID).
+        First(&profile)
+    profileImage := ""
+    if result.Error == nil {
+        profileImage = profile.ProfileImage
+    }
+
+    return c.Status(fiber.StatusOK).JSON(fiber.Map{
+        "message": "Authorized",
+        "user": map[string]interface{}{
+            "id":                  user.ID,
+            "username":            *user.UserName,
+            "full_name":           user.FullName,
+            "role":                user.Role,
+            "department":          user.Department,
+            "batch":               user.Batch,
+            "email":               user.Email,
+            "is_verified":         user.IsVerified,
+            "is_onboard":          user.IsOnboard,
+            "registration_status": user.RegistrationStatus,
+            "created_at":          user.CreatedAt,
+            "updated_at":          user.UpdatedAt,
+            "profile_image":       profileImage,
+        },
+    })
 }
 
 func Logout(c *fiber.Ctx) error {
