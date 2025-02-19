@@ -143,7 +143,7 @@ type Follow struct {
 
 
 type Notification struct {
-	BaseModel
+	BaseModel				   `gorm:"embedded"`
 	UserID    string           `gorm:"size:36;not null;index:idx_notification_user"`
 	CreatorID string           `gorm:"size:36;not null"`
 	Type      NotificationType `gorm:"size:50;not null"`
@@ -161,14 +161,18 @@ type Notification struct {
 	CreatedAt time.Time `gorm:"index:idx_notification_user_created,sort:desc"`
 }
 
-// Validate notification type before creation
 func (n *Notification) BeforeCreate(tx *gorm.DB) error {
-	switch n.Type {
-	case NotificationTypeLike, NotificationTypeComment, NotificationTypeFollow:
-		return nil
-	default:
-		return errors.New("invalid notification type")
-	}
+    // Generate ID and timestamps via BaseModel's hook
+    if err := n.BaseModel.BeforeCreate(tx); err != nil {
+        return err
+    }
+    // Validate notification type
+    switch n.Type {
+    case NotificationTypeLike, NotificationTypeComment, NotificationTypeFollow:
+        return nil
+    default:
+        return errors.New("invalid notification type")
+    }
 }
 
 func (base *BaseModel) BeforeCreate(tx *gorm.DB) error {
