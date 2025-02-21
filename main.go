@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"gradspaceBK/config"
 	"gradspaceBK/controller"
@@ -37,6 +38,24 @@ func Migrate() {
 
 func RunServer() {
 	database.DBConnection()
+	
+    // Start cleanup job
+    go func() {
+        ticker := time.NewTicker(24 * time.Hour)
+        defer ticker.Stop()
+        
+		time.Sleep(1 * time.Minute)
+        if err := database.CleanupOldNotifications(); err != nil {
+            fmt.Printf("Initial notification cleanup failed: %v\n", err)
+        }
+        
+        for range ticker.C {
+            if err := database.CleanupOldNotifications(); err != nil {
+                fmt.Printf("Notification cleanup error: %v\n", err)
+            }
+        }
+    }()
+
 	app := fiber.New()
 	app.Static("/api/v1/uploads", "./uploads") // Makes 'uploads' folder accessible via URLs
 	app.Use(logger.New())
