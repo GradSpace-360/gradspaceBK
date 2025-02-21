@@ -192,3 +192,20 @@ func MigrateDB(db *gorm.DB) error {
 	)
 }
 
+func CleanupOldNotifications() error {
+	now := time.Now().UTC()
+	readThreshold := now.AddDate(0, 0, -30)   
+	unreadThreshold := now.AddDate(0, 0, -90) 
+
+	
+	result := Session.Db.Where("read = ? AND created_at < ?", true, readThreshold).Delete(&Notification{})
+	if result.Error != nil {
+		return result.Error
+	}
+	
+	result = Session.Db.Where("read = ? AND created_at < ?", false, unreadThreshold).Delete(&Notification{})
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
+}
