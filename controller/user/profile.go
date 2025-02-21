@@ -2,6 +2,7 @@ package user
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"gradspaceBK/database"
 	"gradspaceBK/middlewares"
@@ -18,8 +19,9 @@ import (
 func RegisterProfileRoutes(base *fiber.Group) error {
     profile := base.Group("profile") // removed trailing slash for consistency
     profile.Patch("/profileImage",middlewares.AuthMiddleware,UpdateProfileImage)
-    profile.Get("/:userName", GetUserProfile)
+    profile.Get("/:userName",middlewares.AuthMiddleware, GetUserProfile)
     profile.Patch("/:userName",middlewares.AuthMiddleware,UpdateUserProfile)
+    profile.Post("/:userName/follow", middlewares.AuthMiddleware, ToggleFollow) 
     return nil
 }
 
@@ -30,6 +32,15 @@ func GetUserProfile(c *fiber.Ctx) error {
     user := database.User{}
     if err := session.First(&user, "user_name = ?", userNameParam).Error; err != nil {
         return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User not found"})
+    }
+    isFollowing := false
+    if userData, ok := c.Locals("user_data").(jwt.MapClaims); ok {
+        currentUserID := userData["user_id"].(string)
+        var follow database.Follow
+        if err := session.Where("follower_id = ? AND following_id = ?", 
+            currentUserID, user.ID).First(&follow).Error; err == nil {
+            isFollowing = true
+        }
     }
 
     var userProfile database.UserProfile
@@ -107,9 +118,20 @@ func GetUserProfile(c *fiber.Ctx) error {
     if user.UserName != nil {
         username = *user.UserName
     }
-    // TODO: Add POSTS FIELD ,SO THAT WE CAN FETCH POSTS OF USER
-    // TODO: Add FOLLOWERS FIELD ,SO THAT WE CAN FETCH FOLLOWERS OF USER
-    // TODO: Add FOLLOWING FIELD ,SO THAT WE CAN FETCH FOLLOWING OF USER
+    var postCount int64
+    if err := session.Model(&database.Post{}).Where("author_id = ?", user.ID).Count(&postCount).Error; err != nil {
+        log.Printf("Error counting posts: %v", err)
+    }
+
+    var followerCount int64
+    if err := session.Model(&database.Follow{}).Where("following_id = ?", user.ID).Count(&followerCount).Error; err != nil {
+        log.Printf("Error counting followers: %v", err)
+    }
+
+    var followingCount int64
+    if err := session.Model(&database.Follow{}).Where("follower_id = ?", user.ID).Count(&followingCount).Error; err != nil {
+        log.Printf("Error counting following: %v", err)
+    }
     
     response := fiber.Map{
         "user": fiber.Map{
@@ -119,6 +141,10 @@ func GetUserProfile(c *fiber.Ctx) error {
             "department": user.Department,
             "batch":      user.Batch,
             "role":       user.Role,
+            "postCount":    postCount,
+            "followerCount": followerCount,
+            "followingCount": followingCount,
+            "isFollowing": isFollowing,
         },
         "profile": fiber.Map{
             "profileImage": userProfile.ProfileImage,
@@ -408,4 +434,64 @@ func UpdateProfileImage(c *fiber.Ctx) error {
         "message":      "Profile image updated successfully",
         "profileImage": newProfileImagePath,
     })
+}
+
+func ToggleFollow(c *fiber.Ctx) error {
+    targetUserName := c.Params("userName")
+    session := database.Session.Db
+
+    userData := c.Locals("user_data").(jwt.MapClaims)
+    currentUserID := userData["user_id"].(string)
+
+    var targetUser database.User
+    if err := session.Where("user_name = ?", targetUserName).First(&targetUser).Error; err != nil {
+        return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User not found"})
+    }
+
+    if targetUser.ID == currentUserID {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot follow yourself"})
+    }
+
+    var existingFollow database.Follow
+    err := session.Where("follower_id = ? AND following_id = ?", currentUserID, targetUser.ID).First(&existingFollow).Error
+
+    tx := session.Begin()
+    if err != nil {
+        if errors.Is(err, gorm.ErrRecordNotFound) {
+            newFollow := database.Follow{
+                FollowerID:  currentUserID,
+                FollowingID: targetUser.ID,
+            }
+
+            if err := tx.Create(&newFollow).Error; err != nil {
+                tx.Rollback()
+                return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to follow"})
+            }
+
+            notification := database.Notification{
+                UserID:    targetUser.ID, 
+                CreatorID: currentUserID,
+                Type:      database.NotificationTypeFollow,
+            }
+
+            if err := tx.Create(&notification).Error; err != nil {
+                tx.Rollback()
+                return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create notification"})
+            }
+
+            tx.Commit()
+            return c.JSON(fiber.Map{"message": "Successfully followed user"})
+        }
+        tx.Rollback()
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error"})
+    }
+
+    // Unfollow existing
+    if err := tx.Delete(&existingFollow).Error; err != nil {
+        tx.Rollback()
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to unfollow"})
+    }
+    
+    tx.Commit()
+    return c.JSON(fiber.Map{"message": "Successfully unfollowed user"})
 }
