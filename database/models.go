@@ -38,7 +38,7 @@ type Verification struct {
 type User struct {
 	BaseModel          `gorm:"embedded"`
 	FullName           string `gorm:"size:255"`
-	UserName           *string `gorm:"unique;size:255;default:null;null"` // Remove "not null"
+	UserName           *string `gorm:"unique;size:255;default:null;null"` 
 	Department         string `gorm:"size:255"`
 	Batch              int    `gorm:"not null"`
 	Role               string `gorm:"size:255"`
@@ -46,7 +46,7 @@ type User struct {
 	IsOnboard          bool   `gorm:"not null"`
 	RegistrationStatus string `gorm:"not null;size:100;default:'not_registered'"`
 	Email              string `gorm:"unique;not null;size:255"`
-    Password           string `gorm:"size:255"`        // Remove "not null"
+    Password           string `gorm:"size:255"`        
 }
 
 type UserProfile struct {
@@ -184,11 +184,29 @@ func (base *BaseModel) BeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
+type Conversation struct {
+	BaseModel
+	Participant1ID      string `gorm:"size:36;not null;index"` 
+	Participant2ID      string `gorm:"size:36;not null;index"` 
+	LastMessage         string `gorm:"type:text"`               
+	LastMessageSenderID string `gorm:"size:36"`               
+	LastMessageSeen	    bool   `gorm:"default:false"`         
+}
+
+type Message struct {
+	BaseModel
+	ConversationID string `gorm:"size:36;not null;index"` 
+	SenderID       string `gorm:"size:36;not null"`      
+	Text           string `gorm:"type:text"`            
+	Seen           bool   `gorm:"default:false"`         
+	Conversation   Conversation `gorm:"foreignKey:ConversationID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+}
+
 func MigrateDB(db *gorm.DB) error {
 	// Manually create the composite index for sorting
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_notification_user_created ON notifications (user_id, created_at DESC)")
 	return db.AutoMigrate(&User{}, &RegisterRequest{}, &Verification{}, &UserProfile{}, &SocialLinks{}, &Experience{}, &Education{},
-		&Post{},&Comment{},&Like{},&Follow{},&Notification{},
+		&Post{},&Comment{},&Like{},&Follow{},&Notification{},&Conversation{},&Message{},
 	)
 }
 
