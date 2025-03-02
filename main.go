@@ -8,6 +8,7 @@ import (
 	"gradspaceBK/config"
 	"gradspaceBK/controller"
 	"gradspaceBK/database"
+	"gradspaceBK/ws"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
@@ -38,27 +39,30 @@ func Migrate() {
 
 func RunServer() {
 	database.DBConnection()
-	
-    // Start cleanup job
-    go func() {
-        ticker := time.NewTicker(24 * time.Hour)
-        defer ticker.Stop()
-        
+
+	// Start cleanup job
+	go func() {
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+
 		time.Sleep(1 * time.Minute)
-        if err := database.CleanupOldNotifications(); err != nil {
-            fmt.Printf("Initial notification cleanup failed: %v\n", err)
-        }
-        
-        for range ticker.C {
-            if err := database.CleanupOldNotifications(); err != nil {
-                fmt.Printf("Notification cleanup error: %v\n", err)
-            }
-        }
-    }()
+		if err := database.CleanupOldNotifications(); err != nil {
+			fmt.Printf("Initial notification cleanup failed: %v\n", err)
+		}
+
+		for range ticker.C {
+			if err := database.CleanupOldNotifications(); err != nil {
+				fmt.Printf("Notification cleanup error: %v\n", err)
+			}
+		}
+	}()
 
 	app := fiber.New()
-	app.Static("/api/v1/uploads", "./uploads") // Makes 'uploads' folder accessible via URLs
+	// Static files and logger
+	app.Static("/api/v1/uploads", "./uploads")
 	app.Use(logger.New())
+	// **WebSocket setup (BEFORE other routes)**
+	ws.SetupWebSocket(app)
 	controller.SetupRouter(app)
 	app.Listen(":8003")
 }
