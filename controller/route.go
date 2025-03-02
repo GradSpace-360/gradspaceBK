@@ -28,17 +28,24 @@ func SetupRouter(app *fiber.App) {
 			fiber.MethodPatch,
 			fiber.MethodOptions,
 		}, ","),
-		AllowHeaders:     "Origin,Content-Type,Accept,Authorization",
+		// AllowHeaders:     "Origin,Content-Type,Accept,Authorization",
+		// AllowCredentials: true,
+		// ExposeHeaders:    "Set-Cookie",
+		
+		AllowHeaders: "Origin,Content-Type,Accept,Authorization,Upgrade,Connection", // Add WebSocket headers
 		AllowCredentials: true,
-		ExposeHeaders:    "Set-Cookie",
+		ExposeHeaders:    "Set-Cookie,Upgrade,Connection", // Add WebSocket headers
+
+
+		// belwo is already existing comment.
 		// Critical for cookie-based auth
 		// AllowPrivateNetwork: true, // For local network access removed as field not supported
 	}))
 
-	// Your routes
 	AuthRoutes(base_api.(*fiber.Group))
 	RegisterRoutes(base_api.(*fiber.Group))
 	OnboardRoutes(base_api.(*fiber.Group))
+	user.RegisterMessageRoutes(base_api.(*fiber.Group))
 	admin.AdminUserManagementRoutes(base_api.(*fiber.Group))
 	admin.RegisterAnalyticsRoutes(base_api.(*fiber.Group))
 	user.RegisterProfileRoutes(base_api.(*fiber.Group))
