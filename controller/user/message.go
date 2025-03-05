@@ -11,6 +11,7 @@ import (
 	"gradspaceBK/ws"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/log"
 	"github.com/golang-jwt/jwt/v5"
 	"gorm.io/gorm"
 )
@@ -519,11 +520,13 @@ func ClearConversation(c *fiber.Ctx) error {
 	session.Model(&database.Message{}).Where("conversation_id = ? AND sender_id = ?",
 		conversationID, currentUserID).UpdateColumn("sender_id", nil)
 	if conversation.LastMessageReceiverID == currentUserID {
-		session.Model(&database.Message{}).Where("id = ?",
+		log.Info("receiver")
+		session.Model(&database.Conversation{}).Where("id = ?",
 			conversationID).UpdateColumn("last_message_receiver_id", nil)
 	}
 	if conversation.LastMessageSenderID == currentUserID {
-		session.Model(&database.Message{}).Where("id = ?",
+		log.Info("sender")
+		session.Model(&database.Conversation{}).Where("id = ?",
 			conversationID).UpdateColumn("last_message_sender_id", nil)
 	}
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
