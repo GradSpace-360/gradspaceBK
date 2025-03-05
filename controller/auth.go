@@ -17,19 +17,16 @@ import (
 	"gradspaceBK/util"
 )
 
-
-
-
 func AuthRoutes(base *fiber.Group) error {
 	auth := base.Group("/auth")
 
 	auth.Post("/login/", Login)
 	auth.Post("/signup/", SignUp)
 	auth.Get("/check-auth/", middlewares.AuthMiddleware, CheckAuth)
-	auth.Get("/send-verification-otp/", middlewares.AuthMiddleware,SendVerificationOTP)
-	auth.Post("/verify-email", middlewares.AuthMiddleware, VerifyEmail) 
+	auth.Get("/send-verification-otp/", middlewares.AuthMiddleware, SendVerificationOTP)
+	auth.Post("/verify-email", middlewares.AuthMiddleware, VerifyEmail)
 	auth.Post("/logout/", Logout)
-	auth.Post("/forgot-password", ForgotPassword) 
+	auth.Post("/forgot-password", ForgotPassword)
 	auth.Post("/reset-password/:token", ResetPassword)
 	return nil
 }
@@ -65,9 +62,9 @@ func SendVerificationOTP(c *fiber.Ctx) error {
 	if err := session.Where("user_id = ?", userID).First(&verification).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			verification = database.Verification{
-				UserID:               userID,
-				VerificationToken:    otp,
-				ExpiresAt: time.Now().Add(5 * time.Minute),
+				UserID:            userID,
+				VerificationToken: otp,
+				ExpiresAt:         time.Now().Add(5 * time.Minute),
 			}
 			if err := session.Create(&verification).Error; err != nil {
 				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -89,170 +86,170 @@ func SendVerificationOTP(c *fiber.Ctx) error {
 		}
 	}
 
-		// un comment this code on production environment.
-		// Use email service to send the OTP
-		subject := "Your Verification Code"
-		text := fmt.Sprintf("Your verification code is: %s", otp)
-		data := map[string]string{
-			"VerificationCode": otp,
-		}
-		html, err := util.RenderTemplate("templates/verification_email.html", data)
-		if err != nil {
-   			 return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-      			  "message": "Failed to render email template",
-    		})
-		}
-		if err := services.SendEmail(user.Email, subject, text, html); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"message": "Failed to send OTP email",
-			})
-		}
+	// un comment this code on production environment.
+	// Use email service to send the OTP
+	// subject := "Your Verification Code"
+	// text := fmt.Sprintf("Your verification code is: %s", otp)
+	// data := map[string]string{
+	// 	"VerificationCode": otp,
+	// }
+	// html, err := util.RenderTemplate("templates/verification_email.html", data)
+	// if err != nil {
+	// 	 return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+	// 		  "message": "Failed to render email template",
+	// 	})
+	// }
+	// if err := services.SendEmail(user.Email, subject, text, html); err != nil {
+	// 	return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+	// 		"message": "Failed to send OTP email",
+	// 	})
+	// }
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "OTP sent successfully",
 	})
 }
 
 func VerifyEmail(c *fiber.Ctx) error {
-    userData := c.Locals("user_data").(jwt.MapClaims)
-    userID := userData["user_id"].(string)
+	userData := c.Locals("user_data").(jwt.MapClaims)
+	userID := userData["user_id"].(string)
 
-    type VerifyEmailRequest struct {
-        Code string `json:"code"`
-    }
+	type VerifyEmailRequest struct {
+		Code string `json:"code"`
+	}
 
-    var request VerifyEmailRequest
-    if err := c.BodyParser(&request); err != nil {
-        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-            "message": "Invalid request body",
-        })
-    }
+	var request VerifyEmailRequest
+	if err := c.BodyParser(&request); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "Invalid request body",
+		})
+	}
 
-    session := database.Session.Db
+	session := database.Session.Db
 
-    var user database.User
-    if err := session.First(&user, "id = ?", userID).Error; err != nil {
-        return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-            "message": "User not found",
-        })
-    }
+	var user database.User
+	if err := session.First(&user, "id = ?", userID).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"message": "User not found",
+		})
+	}
 
-    if user.IsVerified {
-        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-            "message": "User is already verified",
-        })
-    }
+	if user.IsVerified {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "User is already verified",
+		})
+	}
 
-    var verification database.Verification
-    if err := session.First(&verification, "user_id = ?", userID).Error; err != nil {
-        return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-            "message": "OTP not found or expired",
-        })
-    }
+	var verification database.Verification
+	if err := session.First(&verification, "user_id = ?", userID).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"message": "OTP not found or expired",
+		})
+	}
 
-    if time.Now().After(verification.ExpiresAt) {
-        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-            "message": "OTP has expired",
-        })
-    }
+	if time.Now().After(verification.ExpiresAt) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "OTP has expired",
+		})
+	}
 
-    if request.Code != verification.VerificationToken {
-        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-            "message": "Invalid OTP",
-        })
-    }
+	if request.Code != verification.VerificationToken {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "Invalid OTP",
+		})
+	}
 
-    if err := session.Transaction(func(tx *gorm.DB) error {
-        if err := tx.Model(&database.User{}).Where("id = ?", userID).Update("is_verified", true).Error; err != nil {
-            return err
-        }
-        if err := tx.Delete(&verification).Error; err != nil {
-            return err
-        }
-        return nil
-    }); err != nil {
-        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-            "message": "Failed to verify user",
-        })
-    }
-    // un comment this code on production environment.
-    subject := "Welcome to GradSpace!"
-    data := map[string]string{
-        "userName": *user.UserName, 
-    }
-    html, err := util.RenderTemplate("templates/welcome_email.html", data)
-    if err != nil {
-        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-            "message": "Failed to render welcome email template",
-        })
-    }
+	if err := session.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&database.User{}).Where("id = ?", userID).Update("is_verified", true).Error; err != nil {
+			return err
+		}
+		if err := tx.Delete(&verification).Error; err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Failed to verify user",
+		})
+	}
+	// un comment this code on production environment.
+	// subject := "Welcome to GradSpace!"
+	// data := map[string]string{
+	// 	"userName": *user.UserName,
+	// }
+	// html, err := util.RenderTemplate("templates/welcome_email.html", data)
+	// if err != nil {
+	// 	return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+	// 		"message": "Failed to render welcome email template",
+	// 	})
+	// }
 
-    text := fmt.Sprintf("Hello %s,\n\nWelcome to GradSpace! We're thrilled to have you join our community of graduate students and researchers.", *user.UserName)
-    if err := services.SendEmail(user.Email, subject, text, html); err != nil {
-        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-            "message": "Failed to send welcome email",
-        })
-    }
+	// text := fmt.Sprintf("Hello %s,\n\nWelcome to GradSpace! We're thrilled to have you join our community of graduate students and researchers.", *user.UserName)
+	// if err := services.SendEmail(user.Email, subject, text, html); err != nil {
+	// 	return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+	// 		"message": "Failed to send welcome email",
+	// 	})
+	// }
 
-    return c.Status(fiber.StatusOK).JSON(fiber.Map{
-        "message": "Email verified successfully",
-    })
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Email verified successfully",
+	})
 }
 
 func ForgotPassword(c *fiber.Ctx) error {
-    type RequestBody struct {
-        Email string `json:"email"`
-    }
+	type RequestBody struct {
+		Email string `json:"email"`
+	}
 
-    var body RequestBody
-    if err := c.BodyParser(&body); err != nil {
-        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-            "message": "Invalid request body",
-        })
-    }
+	var body RequestBody
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "Invalid request body",
+		})
+	}
 
-    session := database.Session.Db
-    user := database.User{}
-    if session.Where("email = ?", body.Email).First(&user).RowsAffected == 0 {
-        return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-            "message": "User not found",
-        })
-    }
+	session := database.Session.Db
+	user := database.User{}
+	if session.Where("email = ?", body.Email).First(&user).RowsAffected == 0 {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"message": "User not found",
+		})
+	}
 
-    resetToken := uuid.New().String()
-    resetExpire := time.Now().Add(5 * time.Minute)
+	resetToken := uuid.New().String()
+	resetExpire := time.Now().Add(5 * time.Minute)
 
-    session.Create(&database.Verification{
-        UserID:             user.ID,
-        ResetPasswordToken: resetToken,
-        ExpiresAt:          resetExpire,
-    })
+	session.Create(&database.Verification{
+		UserID:             user.ID,
+		ResetPasswordToken: resetToken,
+		ExpiresAt:          resetExpire,
+	})
 
-    // Generate the reset password link with the reset token
+	// Generate the reset password link with the reset token
 	// un comment this code on production environment.
-    resetPasswordLink := fmt.Sprintf("http://localhost:5173/reset-Password/%s", resetToken)
+	resetPasswordLink := fmt.Sprintf("http://localhost:5173/reset-Password/%s", resetToken)
 
-    data := map[string]string{
-        "ResetPasswordLink": resetPasswordLink,
-        "Username":          *user.UserName, 
-    }
-    html, err := util.RenderTemplate("templates/reset_password_email.html", data)
-    if err != nil {
-        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-            "message": "Failed to render email template",
-        })
-    }
+	data := map[string]string{
+		"ResetPasswordLink": resetPasswordLink,
+		"Username":          *user.UserName,
+	}
+	html, err := util.RenderTemplate("templates/reset_password_email.html", data)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Failed to render email template",
+		})
+	}
 
-    subject := "Reset Your Password"
-    text := fmt.Sprintf("Please click the following link to reset your password: %s", resetPasswordLink)
-    if err := services.SendEmail(user.Email, subject, text, html); err != nil {
-        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-            "message": "Failed to send reset password email",
-        })
-    }
+	subject := "Reset Your Password"
+	text := fmt.Sprintf("Please click the following link to reset your password: %s", resetPasswordLink)
+	if err := services.SendEmail(user.Email, subject, text, html); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Failed to send reset password email",
+		})
+	}
 
-    return c.Status(fiber.StatusOK).JSON(fiber.Map{
-        "message": "Reset password email sent",
-    })
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Reset password email sent",
+	})
 }
 func ResetPassword(c *fiber.Ctx) error {
 	type ResetPasswordRequest struct {
@@ -267,7 +264,7 @@ func ResetPassword(c *fiber.Ctx) error {
 			"message": "Invalid request body",
 		})
 	}
-	
+
 	session := database.Session.Db
 	var verification database.Verification
 	if err := session.Where("reset_password_token = ?", token).First(&verification).Error; err != nil {
@@ -313,79 +310,79 @@ type LoginData struct {
 }
 
 func Login(c *fiber.Ctx) error {
-    var formated_data LoginData
-    var user database.User
-    if err := c.BodyParser(&formated_data); err != nil {
-        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-            "message": "Internal Server Error",
-        })
-    }
-    session := database.Session.Db
+	var formated_data LoginData
+	var user database.User
+	if err := c.BodyParser(&formated_data); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Internal Server Error",
+		})
+	}
+	session := database.Session.Db
 
-    email := formated_data.Email
-    password := formated_data.Password
+	email := formated_data.Email
+	password := formated_data.Password
 
-    if result := session.Model(&database.User{}).Where("email = ?", email).First(&user); result.Error == nil {
-        if err := util.ComparePassword(password, user.Password); err != nil {
-            return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-                "message": "Invalid Username or Password",
-            })
-        }
+	if result := session.Model(&database.User{}).Where("email = ?", email).First(&user); result.Error == nil {
+		if err := util.ComparePassword(password, user.Password); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"message": "Invalid Username or Password",
+			})
+		}
 
-        // Retrieve profile image from UserProfile table.
-        var profile database.UserProfile
-        profileResult := session.Model(&database.UserProfile{}).
-            Where("user_id = ?", user.ID).
-            First(&profile)
-        profileImage := ""
-        if profileResult.Error == nil {
-            profileImage = profile.ProfileImage
-        }
+		// Retrieve profile image from UserProfile table.
+		var profile database.UserProfile
+		profileResult := session.Model(&database.UserProfile{}).
+			Where("user_id = ?", user.ID).
+			First(&profile)
+		profileImage := ""
+		if profileResult.Error == nil {
+			profileImage = profile.ProfileImage
+		}
 
-        if token, err := util.GenerateToken(user.ID); err == nil {
-            access_cookie := &fiber.Cookie{
-                Name:     "access_token",
-                Value:    token["access_token"],
-                HTTPOnly: true,
-                Secure:   false,
-                SameSite: "None",
-            }
-            refresh_cookie := &fiber.Cookie{
-                Name:     "refresh_token",
-                Value:    token["refresh_token"],
-                HTTPOnly: true,
-                Secure:   false,
-                SameSite: "None",
-            }
-            c.Cookie(access_cookie)
-            c.Cookie(refresh_cookie)
-            return c.Status(fiber.StatusOK).JSON(fiber.Map{
-                "success": true,
-                "message": "Login Successful",
-                "user": map[string]interface{}{
-                    "id":                  user.ID,
-                    "username":            *user.UserName,
-                    "full_name":           user.FullName,
-                    "role":                user.Role,
-                    "department":          user.Department,
-                    "batch":               user.Batch,
-                    "email":               user.Email,
-                    "is_verified":         user.IsVerified,
-                    "is_onboard":          user.IsOnboard,
-                    "registration_status": user.RegistrationStatus,
-                    "created_at":          user.CreatedAt,
-                    "updated_at":          user.UpdatedAt,
-                    "profile_image":       profileImage,
-                },
-            })
-        }
-        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-            "message": "Internal Server Error",
-        })
-    }
-    return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-        "message": "Invalid Username or Password",
-    })
+		if token, err := util.GenerateToken(user.ID); err == nil {
+			access_cookie := &fiber.Cookie{
+				Name:     "access_token",
+				Value:    token["access_token"],
+				HTTPOnly: true,
+				Secure:   false,
+				SameSite: "None",
+			}
+			refresh_cookie := &fiber.Cookie{
+				Name:     "refresh_token",
+				Value:    token["refresh_token"],
+				HTTPOnly: true,
+				Secure:   false,
+				SameSite: "None",
+			}
+			c.Cookie(access_cookie)
+			c.Cookie(refresh_cookie)
+			return c.Status(fiber.StatusOK).JSON(fiber.Map{
+				"success": true,
+				"message": "Login Successful",
+				"user": map[string]interface{}{
+					"id":                  user.ID,
+					"username":            *user.UserName,
+					"full_name":           user.FullName,
+					"role":                user.Role,
+					"department":          user.Department,
+					"batch":               user.Batch,
+					"email":               user.Email,
+					"is_verified":         user.IsVerified,
+					"is_onboard":          user.IsOnboard,
+					"registration_status": user.RegistrationStatus,
+					"created_at":          user.CreatedAt,
+					"updated_at":          user.UpdatedAt,
+					"profile_image":       profileImage,
+				},
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Internal Server Error",
+		})
+	}
+	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+		"message": "Invalid Username or Password",
+	})
 }
 
 type SignUpData struct {
@@ -474,43 +471,43 @@ func SignUp(c *fiber.Ctx) error {
 }
 
 func CheckAuth(c *fiber.Ctx) error {
-    user_data := c.Locals("user_data").(jwt.MapClaims)
-    session := database.Session.Db
+	user_data := c.Locals("user_data").(jwt.MapClaims)
+	session := database.Session.Db
 
-    // Retrieve the user details.
-    user := database.User{}
-    session.Model(&database.User{}).
-        Where("id = ?", user_data["user_id"].(string)).
-        First(&user)
+	// Retrieve the user details.
+	user := database.User{}
+	session.Model(&database.User{}).
+		Where("id = ?", user_data["user_id"].(string)).
+		First(&user)
 
-    // Retrieve the user's profile image.
-    var profile database.UserProfile
-    result := session.Model(&database.UserProfile{}).
-        Where("user_id = ?", user.ID).
-        First(&profile)
-    profileImage := ""
-    if result.Error == nil {
-        profileImage = profile.ProfileImage
-    }
+	// Retrieve the user's profile image.
+	var profile database.UserProfile
+	result := session.Model(&database.UserProfile{}).
+		Where("user_id = ?", user.ID).
+		First(&profile)
+	profileImage := ""
+	if result.Error == nil {
+		profileImage = profile.ProfileImage
+	}
 
-    return c.Status(fiber.StatusOK).JSON(fiber.Map{
-        "message": "Authorized",
-        "user": map[string]interface{}{
-            "id":                  user.ID,
-            "username":            *user.UserName,
-            "full_name":           user.FullName,
-            "role":                user.Role,
-            "department":          user.Department,
-            "batch":               user.Batch,
-            "email":               user.Email,
-            "is_verified":         user.IsVerified,
-            "is_onboard":          user.IsOnboard,
-            "registration_status": user.RegistrationStatus,
-            "created_at":          user.CreatedAt,
-            "updated_at":          user.UpdatedAt,
-            "profile_image":       profileImage,
-        },
-    })
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Authorized",
+		"user": map[string]interface{}{
+			"id":                  user.ID,
+			"username":            *user.UserName,
+			"full_name":           user.FullName,
+			"role":                user.Role,
+			"department":          user.Department,
+			"batch":               user.Batch,
+			"email":               user.Email,
+			"is_verified":         user.IsVerified,
+			"is_onboard":          user.IsOnboard,
+			"registration_status": user.RegistrationStatus,
+			"created_at":          user.CreatedAt,
+			"updated_at":          user.UpdatedAt,
+			"profile_image":       profileImage,
+		},
+	})
 }
 
 func Logout(c *fiber.Ctx) error {

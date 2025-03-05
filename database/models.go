@@ -14,8 +14,6 @@ type BaseModel struct {
 	UpdatedAt time.Time
 }
 
-
-
 type RegisterRequest struct {
 	BaseModel   `gorm:"embedded"`
 	FullName    string `gorm:"size:255;not null"`
@@ -37,16 +35,16 @@ type Verification struct {
 
 type User struct {
 	BaseModel          `gorm:"embedded"`
-	FullName           string `gorm:"size:255"`
-	UserName           *string `gorm:"unique;size:255;default:null;null"` 
-	Department         string `gorm:"size:255"`
-	Batch              int    `gorm:"not null"`
-	Role               string `gorm:"size:255"`
-	IsVerified         bool   `gorm:"not null"`
-	IsOnboard          bool   `gorm:"not null"`
-	RegistrationStatus string `gorm:"not null;size:100;default:'not_registered'"`
-	Email              string `gorm:"unique;not null;size:255"`
-    Password           string `gorm:"size:255"`        
+	FullName           string  `gorm:"size:255"`
+	UserName           *string `gorm:"unique;size:255;default:null;null"`
+	Department         string  `gorm:"size:255"`
+	Batch              int     `gorm:"not null"`
+	Role               string  `gorm:"size:255"`
+	IsVerified         bool    `gorm:"not null"`
+	IsOnboard          bool    `gorm:"not null"`
+	RegistrationStatus string  `gorm:"not null;size:100;default:'not_registered'"`
+	Email              string  `gorm:"unique;not null;size:255"`
+	Password           string  `gorm:"size:255"`
 }
 
 type UserProfile struct {
@@ -74,9 +72,9 @@ type SocialLinks struct {
 
 type Experience struct {
 	BaseModel    `gorm:"embedded"`
-	UserID       string     `gorm:"size:36;not null"`
-	CompanyName  string     `gorm:"size:255;not null"`
-	Position     string     `gorm:"size:255;not null"`
+	UserID       string `gorm:"size:36;not null"`
+	CompanyName  string `gorm:"size:255;not null"`
+	Position     string `gorm:"size:255;not null"`
 	StartDate    time.Time
 	EndDate      *time.Time `gorm:"null"`
 	JobType      string     `gorm:"size:50"`
@@ -87,14 +85,14 @@ type Experience struct {
 
 type Education struct {
 	BaseModel       `gorm:"embedded"`
-	UserID          string     `gorm:"size:36;not null"`
-	InstitutionName string     `gorm:"size:255;not null"`
-	Course          string     `gorm:"size:255;not null"`
-	Location        string     `gorm:"size:255"`
+	UserID          string `gorm:"size:36;not null"`
+	InstitutionName string `gorm:"size:255;not null"`
+	Course          string `gorm:"size:255;not null"`
+	Location        string `gorm:"size:255"`
 	StartDate       time.Time
 	EndDate         time.Time `gorm:"null"`
-	Grade           string     `gorm:"size:50"`
-	User            User       `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Grade           string    `gorm:"size:50"`
+	User            User      `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
 type NotificationType string
@@ -107,12 +105,12 @@ const (
 
 type Post struct {
 	BaseModel
-	AuthorID string     `gorm:"size:36;not null;index:idx_post_author"`  // Explicit index name
-	Content  *string    `gorm:"type:text"`                               // Nullable text content
-	Image    *string    `gorm:"size:255"`                                // Nullable image URL
-	Author   User       `gorm:"foreignKey:AuthorID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	Comments []Comment  `gorm:"foreignKey:PostID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	Likes    []Like     `gorm:"foreignKey:PostID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	AuthorID string    `gorm:"size:36;not null;index:idx_post_author"` // Explicit index name
+	Content  *string   `gorm:"type:text"`                              // Nullable text content
+	Image    *string   `gorm:"size:255"`                               // Nullable image URL
+	Author   User      `gorm:"foreignKey:AuthorID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Comments []Comment `gorm:"foreignKey:PostID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Likes    []Like    `gorm:"foreignKey:PostID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
 type Comment struct {
@@ -132,47 +130,45 @@ type Like struct {
 	Post   Post   `gorm:"foreignKey:PostID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
-
 type Follow struct {
-	BaseModel      // Inherits CreatedAt
+	BaseModel          // Inherits CreatedAt
 	FollowerID  string `gorm:"size:36;primaryKey"`
 	FollowingID string `gorm:"size:36;primaryKey"`
 	Follower    User   `gorm:"foreignKey:FollowerID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	Following   User   `gorm:"foreignKey:FollowingID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
-
 type Notification struct {
-	BaseModel				   `gorm:"embedded"`
+	BaseModel `gorm:"embedded"`
 	UserID    string           `gorm:"size:36;not null;index:idx_notification_user"`
 	CreatorID string           `gorm:"size:36;not null"`
 	Type      NotificationType `gorm:"size:50;not null"`
 	Read      bool             `gorm:"not null;default:false"`
-	PostID    *string          `gorm:"size:36"`  // Nullable (for FOLLOW-type notifications)
-	CommentID *string          `gorm:"size:36"`  // Nullable (for LIKE/FOLLOW notifications)
-	
+	PostID    *string          `gorm:"size:36"` // Nullable (for FOLLOW-type notifications)
+	CommentID *string          `gorm:"size:36"` // Nullable (for LIKE/FOLLOW notifications)
+
 	// Relationships
-	User      User     `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	Creator   User     `gorm:"foreignKey:CreatorID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	Post      *Post    `gorm:"foreignKey:PostID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
-	Comment   *Comment `gorm:"foreignKey:CommentID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	User    User     `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Creator User     `gorm:"foreignKey:CreatorID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Post    *Post    `gorm:"foreignKey:PostID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	Comment *Comment `gorm:"foreignKey:CommentID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 
 	// Composite index for sorting
 	CreatedAt time.Time `gorm:"index:idx_notification_user_created,sort:desc"`
 }
 
 func (n *Notification) BeforeCreate(tx *gorm.DB) error {
-    // Generate ID and timestamps via BaseModel's hook
-    if err := n.BaseModel.BeforeCreate(tx); err != nil {
-        return err
-    }
-    // Validate notification type
-    switch n.Type {
-    case NotificationTypeLike, NotificationTypeComment, NotificationTypeFollow:
-        return nil
-    default:
-        return errors.New("invalid notification type")
-    }
+	// Generate ID and timestamps via BaseModel's hook
+	if err := n.BaseModel.BeforeCreate(tx); err != nil {
+		return err
+	}
+	// Validate notification type
+	switch n.Type {
+	case NotificationTypeLike, NotificationTypeComment, NotificationTypeFollow:
+		return nil
+	default:
+		return errors.New("invalid notification type")
+	}
 }
 
 func (base *BaseModel) BeforeCreate(tx *gorm.DB) error {
@@ -186,19 +182,21 @@ func (base *BaseModel) BeforeCreate(tx *gorm.DB) error {
 
 type Conversation struct {
 	BaseModel
-	Participant1ID      string `gorm:"size:36;not null;index"` 
-	Participant2ID      string `gorm:"size:36;not null;index"` 
-	LastMessage         string `gorm:"type:text"`               
-	LastMessageSenderID string `gorm:"size:36"`               
-	LastMessageSeen	    bool   `gorm:"default:false"`         
+	Participant1ID        string `gorm:"size:36;not null;index"`
+	Participant2ID        string `gorm:"size:36;not null;index"`
+	LastMessage           string `gorm:"type:text"`
+	LastMessageSenderID   string `gorm:"size:36"`
+	LastMessageReceiverID string `gorm:"size:36"`
+	LastMessageSeen       bool   `gorm:"default:false"`
 }
 
 type Message struct {
 	BaseModel
-	ConversationID string `gorm:"size:36;not null;index"` 
-	SenderID       string `gorm:"size:36;not null"`      
-	Text           string `gorm:"type:text"`            
-	Seen           bool   `gorm:"default:false"`         
+	ConversationID string       `gorm:"size:36;not null;index"`
+	SenderID       string       `gorm:"type:varchar(36)"`
+	ReceiverID     string       `gorm:"type:varchar(36)"`
+	Text           string       `gorm:"type:text"`
+	Seen           bool         `gorm:"default:false"`
 	Conversation   Conversation `gorm:"foreignKey:ConversationID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 }
 
@@ -206,21 +204,20 @@ func MigrateDB(db *gorm.DB) error {
 	// Manually create the composite index for sorting
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_notification_user_created ON notifications (user_id, created_at DESC)")
 	return db.AutoMigrate(&User{}, &RegisterRequest{}, &Verification{}, &UserProfile{}, &SocialLinks{}, &Experience{}, &Education{},
-		&Post{},&Comment{},&Like{},&Follow{},&Notification{},&Conversation{},&Message{},
+		&Post{}, &Comment{}, &Like{}, &Follow{}, &Notification{}, &Conversation{}, &Message{},
 	)
 }
 
 func CleanupOldNotifications() error {
 	now := time.Now().UTC()
-	readThreshold := now.AddDate(0, 0, -30)   
-	unreadThreshold := now.AddDate(0, 0, -90) 
+	readThreshold := now.AddDate(0, 0, -30)
+	unreadThreshold := now.AddDate(0, 0, -90)
 
-	
 	result := Session.Db.Where("read = ? AND created_at < ?", true, readThreshold).Delete(&Notification{})
 	if result.Error != nil {
 		return result.Error
 	}
-	
+
 	result = Session.Db.Where("read = ? AND created_at < ?", false, unreadThreshold).Delete(&Notification{})
 	if result.Error != nil {
 		return result.Error
