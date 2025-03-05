@@ -160,6 +160,7 @@ func GetMessages(c *fiber.Ctx) error {
 	}
 	messages := []database.Message{}
 	if err := session.Where("conversation_id = ? AND (sender_id = ? OR receiver_id = ?)", conversation.ID, user.ID, user.ID).
+		Order("created_at ASC").
 		Find(&messages).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"success": false,
