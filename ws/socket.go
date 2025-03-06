@@ -162,7 +162,6 @@ func handleMessageSeen(conn *websocket.Conn, payload MarkMessagesAsSeenPayload) 
     }
 
     // Verify user is a conversation participant
-	log.Printf("participant1ID: %s, participant2ID: %s, userID: %s", conversation.Participant1ID, conversation.Participant2ID, payload.UserID)
     if conversation.Participant1ID != payload.UserID && conversation.Participant2ID != payload.UserID {
         log.Printf("User %s unauthorized for conversation %s", payload.UserID, payload.ConversationID)
         return
@@ -174,7 +173,7 @@ func handleMessageSeen(conn *websocket.Conn, payload MarkMessagesAsSeenPayload) 
         otherParticipant = conversation.Participant2ID
     }
 
-    // Update unseen messages in transaction
+    var rowsAffected int64
     txErr := session.Transaction(func(tx *gorm.DB) error {
         result := tx.Model(&database.Message{}).
             Where("conversation_id = ? AND sender_id = ? AND seen = ?", 
@@ -186,8 +185,10 @@ func handleMessageSeen(conn *websocket.Conn, payload MarkMessagesAsSeenPayload) 
         if result.Error != nil {
             return result.Error
         }
-		 // Update conversation's last message seen status if applicable
-		 if conversation.LastMessageSenderID == payload.UserID {
+        rowsAffected = result.RowsAffected
+
+        // Update conversation's last message seen status if applicable
+        if conversation.LastMessageSenderID == payload.UserID {
             if err := tx.Model(&conversation).
                 Update("last_message_seen", true).Error; err != nil {
                 return err
@@ -196,7 +197,7 @@ func handleMessageSeen(conn *websocket.Conn, payload MarkMessagesAsSeenPayload) 
         }
 
         log.Printf("Marked %d messages as seen in conversation %s by %s",
-            result.RowsAffected,
+            rowsAffected,
             payload.ConversationID,
             payload.UserID)
 
@@ -208,14 +209,16 @@ func handleMessageSeen(conn *websocket.Conn, payload MarkMessagesAsSeenPayload) 
         return
     }
 
-    // Notify the message sender
-    if recipientCon := GetSocket(otherParticipant); recipientCon != nil {
-        err := recipientCon.WriteJSON(fiber.Map{
-            "type": "MESSAGES_SEEN",
-            "conversationId": payload.ConversationID,
-        })
-        if err != nil {
-            log.Printf("WebSocket notify failed: %v", err)
+    // Notify the message sender only if messages were updated
+    if rowsAffected > 0 {
+        if recipientCon := GetSocket(otherParticipant); recipientCon != nil {
+            err := recipientCon.WriteJSON(fiber.Map{
+                "type": "MESSAGES_SEEN",
+                "conversationId": payload.ConversationID,
+            })
+            if err != nil {
+                log.Printf("WebSocket notify failed: %v", err)
+            }
         }
     }
 }
