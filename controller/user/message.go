@@ -158,7 +158,8 @@ func GetMessages(c *fiber.Ctx) error {
 			"message": "Conversation not found",
 		})
 	}
-	messages := []database.Message{}
+	
+	messages := make([]database.Message, 0)
 	if err := session.Where("conversation_id = ? AND (sender_id = ? OR receiver_id = ?)", conversation.ID, user.ID, user.ID).
 		Order("created_at ASC").
 		Find(&messages).Error; err != nil {
@@ -168,7 +169,8 @@ func GetMessages(c *fiber.Ctx) error {
 		})
 	}
 
-	var messageResponses []MessageResponse
+	messageResponses := make([]MessageResponse, 0)
+
 	for _, msg := range messages {
 		messageResponses = append(messageResponses, MessageResponse{
 			ID:        msg.ID,
