@@ -169,7 +169,7 @@ func GetUsers(c *fiber.Ctx) error {
 	session := database.Session.Db
 	var users []database.User
 	query := session.Model(&database.User{})
-
+	query = query.Where("role != ?", "Admin")
 	if filters.Search != "" {
 		searchTerm := strings.TrimSpace(filters.Search)
 		query = query.Where("full_name LIKE ? OR email LIKE ?", "%"+searchTerm+"%", "%"+searchTerm+"%")
