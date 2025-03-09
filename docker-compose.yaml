@@ -1,0 +1,15 @@
+services:
+  gradspaceBK:
+    image: fragger0497/gradspace:backend
+    container_name: gradspaceBK
+    ports:
+      - "8000:8000"
+    restart: always
+    env_file:
+      - .env
+    networks:
+      - shared_network
+
+networks:
+  shared_network:
+    external: true

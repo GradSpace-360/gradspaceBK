@@ -1,0 +1,40 @@
+name: Deploy CI
+
+on:
+  push:
+    branches: [ "server" ]
+
+  workflow_dispatch:
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      -name: Checkout repository
+      uses: actions/checkout@v3
+
+      -name: Log in to Docker Hub
+      run: echo "${{ secrets.DOCKER_PASSWORD}}" | docker login -u "${{ secrets.DOCKER_USERNAME }} --password-stdin"
+
+      -name: Build docker image
+      run: docker build -f Dockerfile -t fragger0497/gradspace:backend .
+
+      -name: Push Docker image to Docker hub
+      run: docker push fragger0497/gradspace:backend
+
+      -name: Configure SSH
+      uses: webfactory/ssh-agent@0.4.1
+      with:
+        ssh_private_key: ${{ secrets.SERVER_SSH_PRIVATE_KEY }}
+      
+      -name: Deploy
+      env:
+        REMOTE_USER: ${{ secrets.SERVER_REMOTE_USER }}
+        REMOTE_IP: ${{ secrets.SERVER_REMOTE_IP }}
+        PROJECT_PATH: ${{ secrets.PROJECT_PATH }}
+      
+      run: |
+        ssh -o StrictHostKeyCheking=no $REMOTE_USER@$REMOTE_IP "cd $PROJECT_PATH && docker compose up --build --force-recreate -d"
