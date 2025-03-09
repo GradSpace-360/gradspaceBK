@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"gradspaceBK/config"
 	"gradspaceBK/controller"
 	"gradspaceBK/database"
 	"gradspaceBK/ws"
@@ -25,6 +26,7 @@ func main() {
 // }
 
 func RunServer() {
+	config.LoadConfig() // Load .env first
 	database.DBConnection()
 
 	// Start cleanup job
