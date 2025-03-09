@@ -2,10 +2,8 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"time"
 
-	"gradspaceBK/config"
 	"gradspaceBK/controller"
 	"gradspaceBK/database"
 	"gradspaceBK/ws"
@@ -15,27 +13,16 @@ import (
 )
 
 func main() {
-	if len(os.Args) < 2 {
-		panic("No command provided")
-	}
-	config.LoadConfig()
-	arg := os.Args[1]
-	switch arg {
-	case "migrate":
-		Migrate()
-	case "runserver":
-		RunServer()
-	default:
-		panic("Invalid command")
-	}
+	RunServer()
 }
 
-func Migrate() {
-	database.DBConnection()
-	session := database.Session.Db
-	fmt.Println("Connected to database")
-	database.MigrateDB(session)
-}
+//need sql based migration
+// func Migrate() {
+// 	database.DBConnection()
+// 	session := database.Session.Db
+// 	fmt.Println("Connected to database")
+// 	database.MigrateDB(session)
+// }
 
 func RunServer() {
 	database.DBConnection()
