@@ -32,5 +32,5 @@ jobs:
       
       - name: Deploy 
         run: |
-          ssh -o StrictHostKeyCheking=no ${{ secrets.SERVER_REMOTE_USER }}@${{ secrets.SERVER_REMOTE_IP }} "
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_REMOTE_USER }}@${{ secrets.SERVER_REMOTE_IP }} "
           cd ${{ secrets.PROJECT_PATH }} && docker compose up --build --force-recreate -d"
