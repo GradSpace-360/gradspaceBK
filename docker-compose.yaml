@@ -3,7 +3,7 @@ services:
     image: fragger0497/gradspace:backend
     container_name: gradspaceBK
     ports:
-      - "8000:8000"
+      - "8000:8003"
     restart: always
     env_file:
       - .env
