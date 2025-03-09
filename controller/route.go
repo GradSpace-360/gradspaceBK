@@ -51,4 +51,6 @@ func SetupRouter(app *fiber.App) {
 	user.RegisterProfileRoutes(base_api.(*fiber.Group))
 	user.PostRoutes(base_api.(*fiber.Group))
 	user.NotificationRoutes(base_api.(*fiber.Group))
+	user.JobRoutes(base_api.(*fiber.Group))
+	user.CompanyRoutes(base_api.(*fiber.Group))
 }
