@@ -21,4 +21,4 @@ WORKDIR /root/
 #copy build file from previous image
 COPY --from=builder /app/app .
 
-CMD ["./app"]
+CMD ["./app runserver"]
