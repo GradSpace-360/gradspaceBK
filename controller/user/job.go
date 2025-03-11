@@ -305,6 +305,7 @@ func GetSavedJobs(c *fiber.Ctx) error {
                 UserName:     userName,
                 ProfileImage: profileImage,
             },
+            IsSaved: true,
         }
         transformedJobs = append(transformedJobs, transformedJob)
     }
