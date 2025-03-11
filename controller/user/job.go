@@ -27,6 +27,7 @@ type JobFilters struct {
     Search     string `query:"search"`
     Location   string `query:"location"`
     CompanyID  string `query:"company_id"`
+    JobType    string `query:"job_type"`
     Page       int    `query:"page"`
     Limit      int    `query:"limit"`
 }
@@ -100,6 +101,9 @@ func GetJobs(c *fiber.Ctx) error {
     }
     if filters.CompanyID != "" {
         query = query.Where("company_id = ?", filters.CompanyID)
+    }
+    if filters.JobType != "" {
+        query = query.Where("job_type = ?", filters.JobType)
     }
     query = query.Order("created_at DESC")
     
