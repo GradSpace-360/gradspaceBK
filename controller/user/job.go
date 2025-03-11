@@ -14,7 +14,7 @@ import (
 
 func JobRoutes(base *fiber.Group) {
     job := base.Group("/jobs")
-    job.Get("/", GetJobs)
+    job.Get("/",middlewares.AuthMiddleware , GetJobs)
     job.Get("/saved",middlewares.AuthMiddleware ,GetSavedJobs)
     job.Post("/save",middlewares.AuthMiddleware ,SaveJob)
     job.Patch("/:id/status",middlewares.AuthMiddleware,UpdateHiringStatus)
@@ -42,6 +42,8 @@ type JobResponse struct {
     ApplyLink    string          `json:"apply_link"`
     Company      CompanyResponse `json:"company"`
     PostedBy     PosterResponse  `json:"posted_by"`
+    CreatedAt    string          `json:"created_at"`
+    IsSaved      bool            `json:"is_saved"`
 }
 
 type CompanyResponse struct {
@@ -62,6 +64,14 @@ type Pagination struct {
 }
 
 func GetJobs(c *fiber.Ctx) error {
+    user_data := c.Locals("user_data").(jwt.MapClaims)
+    userID, ok := user_data["user_id"].(string)
+    if !ok || userID == "" {
+        return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+            "success": false,
+            "message": "Unauthorized: missing user ID",
+        })
+    }
     var filters JobFilters
     if err := c.QueryParser(&filters); err != nil {
         return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -104,6 +114,12 @@ func GetJobs(c *fiber.Ctx) error {
             "success": false,
             "message": "Failed to fetch jobs",
         })
+    }
+    var savedJobIDs []string
+    if userID != "" {
+        database.Session.Db.Model(&database.SavedJob{}).
+            Where("user_id = ?", userID).
+            Pluck("job_id", &savedJobIDs)
     }
 
     // Collect UserIDs for profile lookup
@@ -164,6 +180,9 @@ func GetJobs(c *fiber.Ctx) error {
                 LogoURL: job.Company.LogoURL,
             },
             PostedBy: poster,
+            CreatedAt: job.CreatedAt.Format("2006-01-02"),
+            IsSaved:      contains(savedJobIDs, job.ID),
+            
         })
     }
 
@@ -628,15 +647,15 @@ func validateJobRequest(req struct {
 
     if strings.TrimSpace(req.Title) == "" {
         errors["title"] = "Title is required"
-    } else if len(req.Title) < 5 {
-        errors["title"] = "Title must be at least 5 characters"
+    } else if len(req.Title) < 3 {
+        errors["title"] = "Title must be at least 3 characters"
     }
 
     if _, err := uuid.Parse(req.CompanyID); err != nil {
         errors["company_id"] = "Invalid company identifier"
     }
 
-    if len(strings.TrimSpace(req.Description)) < 20 {
+    if len(strings.TrimSpace(req.Description)) < 10 {
         errors["description"] = "Description must be at least 20 characters"
     }
 
@@ -659,3 +678,11 @@ func validateJobRequest(req struct {
     return errors
 }
 
+func contains(slice []string, item string) bool {
+    for _, s := range slice {
+        if s == item {
+            return true
+        }
+    }
+    return false
+}
