@@ -364,3 +364,369 @@ Deletes a company and its associated logo file. Requires authentication.
 |--------|---------------------------------------|-------------------------------|
 | 404 | `{"error": "Company not found"}` | Invalid company ID |
 | 500 | `{"error": "Failed to delete company"}` | Database/file system error |
+
+## Event Endpoints
+
+### `GET /events/`
+
+**Description**  
+Retrieve a list of events with optional filtering and pagination. Includes details about whether the event is saved by the authenticated user.
+
+**Authentication**  
+Required
+
+**Query Parameters**
+| Parameter | Type | Required | Default | Description |
+|-----------|--------|----------|---------|-------------|
+| `search` | string | No | - | Filter by event title. |
+| `venue` | string | No | - | Filter by event venue. |
+| `event_type` | string | No | - | Filter by event type (e.g., `ALUM_EVENT`). |
+| `start_date` | date | No | - | Filter events starting on or after this date (ISO 8601 format). |
+| `page` | integer | No | 1 | Page number. |
+| `limit` | integer | No | 10 | Number of records per page. |
+
+**Response Format**
+
+```json
+{
+  "success": true,
+  "data": {
+    "events": [
+      {
+        "id": "string",
+        "title": "string",
+        "description": "string",
+        "venue": "string",
+        "event_type": "string",
+        "register_link": "string (url)",
+        "start_date_time": "ISO 8601 timestamp",
+        "end_date_time": "ISO 8601 timestamp",
+        "is_registration_open": true,
+        "posted_by": {
+          "id": "string",
+          "full_name": "string",
+          "username": "string",
+          "profile_image": "string"
+        },
+        "created_at": "date (YYYY-MM-DD)",
+        "is_saved": true
+      }
+    ],
+    "pagination": {
+      "total": 0,
+      "page": 1,
+      "limit": 10
+    }
+  }
+}
+```
+
+**Sample Response**
+
+```json
+{
+  "success": true,
+  "data": {
+    "events": [
+      {
+        "id": "aa6d5d3e-1f17-4304-a15e-61138ea4a2e1",
+        "title": "Mech Alumni Industry Connect 2025",
+        "description": "# Mechanical Engineering Industry Symposium...",
+        "venue": "College of Engineering Adoor...",
+        "event_type": "ALUM_EVENT",
+        "register_link": "",
+        "start_date_time": "2025-03-01T10:00:00+05:30",
+        "end_date_time": "2025-03-03T17:00:00+05:30",
+        "is_registration_open": true,
+        "posted_by": {
+          "id": "dd9a8d18-8156-4633-8b48-19a43c20724d",
+          "full_name": "Arjun Menon",
+          "username": "arjun_menon",
+          "profile_image": "uploads/profile/dd9a8d18-8156-4633-8b48-19a43c20724d.jpg"
+        },
+        "created_at": "2025-03-12",
+        "is_saved": false
+      }
+    ],
+    "pagination": {
+      "total": 2,
+      "page": 1,
+      "limit": 10
+    }
+  }
+}
+```
+
+---
+
+### `GET /events/saved`
+
+**Description**  
+Retrieve a list of events saved by the authenticated user.
+
+**Authentication**  
+Required
+
+**Query Parameters**
+| Parameter | Type | Required | Default |
+|-----------|---------|----------|---------|
+| `page` | integer | No | 1 |
+| `limit` | integer | No | 10 |
+
+**Response Format**  
+Same structure as `GET /events/` but lists only saved events.
+
+**Sample Response**
+
+```json
+{
+  "success": true,
+  "data": {
+    "events": [],
+    "pagination": {
+      "total": 0,
+      "page": 1,
+      "limit": 10
+    }
+  }
+}
+```
+
+---
+
+### `POST /events/save`
+
+**Description**  
+Toggle saving/unsaving an event for the authenticated user.
+
+**Authentication**  
+Required
+
+**Request Body**
+
+```json
+{
+  "event_id": "string"
+}
+```
+
+**Response Format**
+
+```json
+{
+  "success": true,
+  "action": "saved" // or "removed"
+}
+```
+
+**Sample Request**
+
+```json
+{
+  "event_id": "a2dff955-bce3-49fd-b4c2-188936e60661"
+}
+```
+
+**Sample Response**
+
+```json
+{
+  "success": true,
+  "action": "saved"
+}
+```
+
+---
+
+### `GET /events/my-events`
+
+**Description**  
+Retrieve events posted by the authenticated user.
+
+**Authentication**  
+Required
+
+**Query Parameters**
+| Parameter | Type | Required | Default |
+|-----------|---------|----------|---------|
+| `page` | integer | No | 1 |
+| `limit` | integer | No | 10 |
+
+**Response Format**  
+Same structure as `GET /events/` but lists only the user’s posted events.
+
+**Sample Response**
+
+```json
+{
+  "success": true,
+  "data": {
+    "events": [
+      {
+        "id": "1696f74c-0920-402d-b43d-9bf577b23fc0",
+        "title": "CSE Alumni Tech Summit 2024",
+        "description": "# Annual CSE Alumni Meet...",
+        "venue": "College of Engineering Adoor...",
+        "event_type": "ALUM_EVENT",
+        "register_link": "https://alum.coeadoor.edu.in/register/cse-summit",
+        "start_date_time": "2024-10-12T09:00:00+05:30",
+        "end_date_time": "2024-10-13T20:00:00+05:30",
+        "is_registration_open": false,
+        "posted_by": {
+          "id": "fbdffa0e-f848-4fb7-aed5-faaf6b8ba906",
+          "full_name": "Maria George",
+          "username": "maria_george",
+          "profile_image": "uploads/profile/fbdffa0e-f848-4fb7-aed5-faaf6b8ba906.jpg"
+        },
+        "created_at": "2025-03-12",
+        "is_saved": false
+      }
+    ],
+    "pagination": {
+      "total": 1,
+      "page": 1,
+      "limit": 10
+    }
+  }
+}
+```
+
+---
+
+### `POST /events/`
+
+**Description**  
+Create a new event listing.
+
+**Authentication**  
+Required
+
+**Request Body**
+
+```json
+{
+  "title": "string (min 5, max 255)",
+  "description": "string (min 20)",
+  "venue": "string",
+  "event_type": "string (e.g., ALUM_EVENT)",
+  "register_link": "string (optional, valid URL)",
+  "start_date_time": "ISO 8601 timestamp",
+  "end_date_time": "ISO 8601 timestamp"
+}
+```
+
+**Response Format**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "string",
+    "title": "string",
+    "venue": "string",
+    "event_type": "string",
+    "start_time": "ISO 8601 timestamp"
+  }
+}
+```
+
+**Sample Request**
+
+```json
+{
+  "title": "CSE Alumni Tech Summit 2024",
+  "description": "# Annual CSE Alumni Meet...",
+  "venue": "College of Engineering Adoor...",
+  "event_type": "ALUM_EVENT",
+  "register_link": "https://alum.coeadoor.edu.in/register/cse-summit",
+  "start_date_time": "2024-10-12T09:00:00+05:30",
+  "end_date_time": "2024-10-13T20:00:00+05:30"
+}
+```
+
+**Sample Response**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "1696f74c-0920-402d-b43d-9bf577b23fc0",
+    "title": "CSE Alumni Tech Summit 2024",
+    "venue": "College of Engineering Adoor...",
+    "event_type": "ALUM_EVENT",
+    "start_time": "2024-10-12T09:00:00+05:30"
+  }
+}
+```
+
+---
+
+### `PATCH /events/:id/status`
+
+**Description**  
+Update the registration status of an event (open/closed).
+
+**Authentication**  
+Required
+
+**URL Parameter**
+| Parameter | Type | Description |
+|-----------|--------|---------------------|
+| `id` | string | Event identifier |
+
+**Request Body**
+
+```json
+{
+  "is_open": true
+}
+```
+
+**Response Format**
+
+```json
+{
+  "success": true,
+  "is_open": true
+}
+```
+
+**Sample Request**
+
+```json
+{
+  "is_open": false
+}
+```
+
+**Sample Response**
+
+```json
+{
+  "success": true,
+  "is_open": false
+}
+```
+
+---
+
+### `DELETE /events/:id`
+
+**Description**  
+Delete an event posted by the authenticated user.
+
+**Authentication**  
+Required
+
+**URL Parameter**
+| Parameter | Type | Description |
+|-----------|--------|---------------------|
+| `id` | string | Event identifier |
+
+**Response Format**
+
+```json
+{
+  "success": true
+}
+```
