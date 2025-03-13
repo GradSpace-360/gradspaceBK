@@ -8,13 +8,13 @@ import (
 )
 
 func LoadConfig() {
-    err := godotenv.Load()
-    if err != nil {
-        log.Fatal("Error loading .env file")
-    }
+	err := godotenv.Load()
+	if err != nil {
+		log.Print("Error loading .env file")
+	}
 }
 
 func GetResendAPIKey() string {
-    apiKey := os.Getenv("RESEND_API_KEY")
-    return apiKey
+	apiKey := os.Getenv("RESEND_API_KEY")
+	return apiKey
 }
