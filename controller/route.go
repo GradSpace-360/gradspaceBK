@@ -11,12 +11,14 @@ import (
 
 func SetupRouter(app *fiber.App) {
 	base_api := app.Group("/api/v1")
-	
+
 	base_api.Use(cors.New(cors.Config{
 		AllowOriginsFunc: func(origin string) bool {
 			allowedOrigins := map[string]bool{
-				"https://feature-admin.gradspace-frontend.pages.dev": true,
-				"http://localhost:5173":                              true,
+				"https://feature-user.gradspace-frontend.pages.dev": true,
+				"http://localhost:5173":                             true,
+				"https://www.gradspace.me":                          true,
+				"https://gradspace.me":                              true,
 			}
 			return allowedOrigins[origin]
 		},
@@ -31,11 +33,10 @@ func SetupRouter(app *fiber.App) {
 		// AllowHeaders:     "Origin,Content-Type,Accept,Authorization",
 		// AllowCredentials: true,
 		// ExposeHeaders:    "Set-Cookie",
-		
-		AllowHeaders: "Origin,Content-Type,Accept,Authorization,Upgrade,Connection", // Add WebSocket headers
+
+		AllowHeaders:     "Origin,Content-Type,Accept,Authorization,Upgrade,Connection", // Add WebSocket headers
 		AllowCredentials: true,
 		ExposeHeaders:    "Set-Cookie,Upgrade,Connection", // Add WebSocket headers
-
 
 		// belwo is already existing comment.
 		// Critical for cookie-based auth
