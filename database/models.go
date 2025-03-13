@@ -171,6 +171,51 @@ func (n *Notification) BeforeCreate(tx *gorm.DB) error {
 	}
 }
 
+// Job Portal Models
+
+type Company struct {
+	BaseModel   `gorm:"embedded"`
+	Name        string `gorm:"size:255;not null"`
+	LogoURL     string `gorm:"size:255;null"`
+}
+
+type Job struct {
+	BaseModel    `gorm:"embedded"`
+	Title        string   `gorm:"size:255;not null"`
+	PostedBy     string   `gorm:"size:36;not null"`
+	CompanyID    string   `gorm:"size:36;not null"`
+	Description  string   `gorm:"type:text;not null"`
+	Location     string   `gorm:"size:255;not null"`
+	Requirements string   `gorm:"type:text;not null"`
+	IsOpen       bool     `gorm:"not null;default:true"`
+	JobType      string   `gorm:"size:50;not null"`
+	ApplyLink    string   `gorm:"size:255;null"`
+	
+	PostedByUser User     `gorm:"foreignKey:PostedBy;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Company      Company  `gorm:"foreignKey:CompanyID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+}
+
+type SavedJob struct {
+	BaseModel   `gorm:"embedded"`
+	UserID      string `gorm:"size:36;not null;uniqueIndex:idx_saved_job_user"`
+	JobID       string `gorm:"size:36;not null;uniqueIndex:idx_saved_job_user"`
+	
+	User        User    `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Job         Job     `gorm:"foreignKey:JobID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+}
+
+type JobReport struct {
+	BaseModel     `gorm:"embedded"`
+	JobID         string `gorm:"size:36;not null"`
+	Reason        string `gorm:"size:255;not null"`
+	JobPosterID   string `gorm:"size:36;not null"`
+	ReporterID    string `gorm:"size:36;not null"`
+	
+	Job          Job     `gorm:"foreignKey:JobID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	JobPoster    User    `gorm:"foreignKey:JobPosterID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Reporter     User    `gorm:"foreignKey:ReporterID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+}
+
 func (base *BaseModel) BeforeCreate(tx *gorm.DB) error {
 	*base = BaseModel{
 		ID:        uuid.New().String(),
@@ -200,12 +245,64 @@ type Message struct {
 	Conversation   Conversation `gorm:"foreignKey:ConversationID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 }
 
+type EventType string
+
+const (
+    EventTypeCampus EventType = "CAMPUS_EVENT"
+    EventTypeAlum   EventType = "ALUM_EVENT"
+)
+
+type Event struct {
+    BaseModel          `gorm:"embedded"`
+    Title              string     `gorm:"size:255;not null"`
+    Description        string     `gorm:"type:text;not null"`   // Markdown-ready
+    Venue              string     `gorm:"size:255;not null"`
+    RegisterLink       string     `gorm:"size:255"`             // Optional
+    EventType          EventType  `gorm:"size:20;not null;index:idx_event_type"`
+    StartDateTime      time.Time  `gorm:"not null;index:idx_event_time"`
+    EndDateTime        time.Time  `gorm:"not null"`
+    IsRegistrationOpen bool       `gorm:"not null;default:true"`
+    PostedBy           string     `gorm:"size:36;not null;index:idx_event_owner"`
+    // Relationships
+    User               User       `gorm:"foreignKey:PostedBy;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+}
+
+type SavedEvent struct {
+    BaseModel   `gorm:"embedded"`
+    UserID      string `gorm:"size:36;not null;uniqueIndex:idx_saved_event"`
+    EventID     string `gorm:"size:36;not null;uniqueIndex:idx_saved_event"`
+    
+    User        User  `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+    Event       Event `gorm:"foreignKey:EventID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+}
+
+
 func MigrateDB(db *gorm.DB) error {
-	// Manually create the composite index for sorting
-	db.Exec("CREATE INDEX IF NOT EXISTS idx_notification_user_created ON notifications (user_id, created_at DESC)")
-	return db.AutoMigrate(&User{}, &RegisterRequest{}, &Verification{}, &UserProfile{}, &SocialLinks{}, &Experience{}, &Education{},
-		&Post{}, &Comment{}, &Like{}, &Follow{}, &Notification{}, &Conversation{}, &Message{},
+	// First create tables
+	err := db.AutoMigrate(
+		&User{}, &RegisterRequest{}, &Verification{}, &UserProfile{}, 
+		&SocialLinks{}, &Experience{}, &Education{}, &Post{}, &Comment{}, 
+		&Like{}, &Follow{}, &Notification{}, &Conversation{}, &Message{},
+		// Add new models
+		&Company{}, &Job{}, &SavedJob{}, &JobReport{},&Event{}, &SavedEvent{},
 	)
+	if err != nil {
+		return err
+	}
+
+	// Then add constraints
+	db.Exec(`ALTER TABLE events ADD CONSTRAINT chk_event_type 
+    CHECK (event_type IN ('CAMPUS_EVENT', 'ALUM_EVENT'))`)
+
+	db.Exec(`ALTER TABLE jobs ADD CONSTRAINT chk_job_type 
+		CHECK (job_type IN ('Part-Time', 'Full-Time', 'Internship', 'Freelance'))`)
+
+	db.Exec(`ALTER TABLE job_reports ADD CONSTRAINT chk_report_reason 
+		CHECK (reason IN ('Fake Job', 'Scam', 'Discriminatory Content', 'Incorrect Information'))`)
+
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_notification_user_created ON notifications (user_id, created_at DESC)")
+	
+	return nil
 }
 
 func CleanupOldNotifications() error {
