@@ -3,6 +3,7 @@ package controller
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -26,7 +27,6 @@ func OnboardRoutes(base *fiber.Group) error {
 	return nil
 }
 
-
 func CompleteOnboarding(c *fiber.Ctx) error {
 	userData := c.Locals("user_data").(jwt.MapClaims)
 	userID := userData["user_id"].(string)
@@ -43,6 +43,12 @@ func CompleteOnboarding(c *fiber.Ctx) error {
 		fileExt := filepath.Ext(profileImage.Filename)
 		newFileName := fmt.Sprintf("%s%s", userID, fileExt)
 		savePath := filepath.Join(uploadDir, newFileName)
+
+		if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to create upload directory",
+			})
+		}
 
 		if err := c.SaveFile(profileImage, savePath); err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save image"})
@@ -150,8 +156,6 @@ func CompleteOnboarding(c *fiber.Ctx) error {
 	}
 	return c.JSON(fiber.Map{"success": true})
 }
-
-
 
 func CreateUserProfile(c *fiber.Ctx) error {
 	var userProfile database.UserProfile
