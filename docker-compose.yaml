@@ -8,4 +8,4 @@ services:
     env_file:
       - .env
     volumes:
-      - ./templates:/templates
+      - /var/www/gradspace/uploads:/app/uploads
