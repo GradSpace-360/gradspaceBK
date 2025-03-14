@@ -6,10 +6,11 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
 	"gradspaceBK/database"
 	"gradspaceBK/middlewares"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 )
 
 func CompanyRoutes(base *fiber.Group) {
@@ -24,7 +25,7 @@ func CompanyRoutes(base *fiber.Group) {
 func GetCompanies(c *fiber.Ctx) error {
 	var companies []database.Company
 	result := database.Session.Db.Order("created_at desc").Find(&companies)
-	
+
 	if result.Error != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to fetch companies",
@@ -63,9 +64,9 @@ func AddCompany(c *fiber.Ctx) error {
 
 	// Generate unique filename
 	fileExt := filepath.Ext(logoFile.Filename)
-	newFileName := fmt.Sprintf("%d-%s%s", 
-		time.Now().UnixNano(), 
-		uuid.New().String(), 
+	newFileName := fmt.Sprintf("%d-%s%s",
+		time.Now().UnixNano(),
+		uuid.New().String(),
 		fileExt,
 	)
 
@@ -132,14 +133,19 @@ func UpdateCompany(c *fiber.Ctx) error {
 
 			// Generate new filename
 			fileExt := filepath.Ext(logoFile.Filename)
-			newFileName := fmt.Sprintf("%d-%s%s", 
-				time.Now().UnixNano(), 
-				uuid.New().String(), 
+			newFileName := fmt.Sprintf("%d-%s%s",
+				time.Now().UnixNano(),
+				uuid.New().String(),
 				fileExt,
 			)
 
 			// Save new logo
 			uploadDir := "./uploads/company-logos"
+			if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Failed to create upload directory",
+				})
+			}
 			savePath := filepath.Join(uploadDir, newFileName)
 			if err := c.SaveFile(logoFile, savePath); err != nil {
 				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
