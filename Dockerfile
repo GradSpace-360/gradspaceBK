@@ -21,6 +21,6 @@ WORKDIR /root/
 #copy build file from previous image
 COPY --from=builder /app/app .
 COPY --from=builder /app/templates ./templates
-RUN mkdir /app/uploads
+RUN mkdir -p /app/uploads
 
 CMD ["./app"]
