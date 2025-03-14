@@ -276,6 +276,55 @@ type SavedEvent struct {
     Event       Event `gorm:"foreignKey:EventID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
+// project shelf
+type ProjectType string
+
+const (
+    ProjectTypePersonal ProjectType = "PERSONAL"
+    ProjectTypeGroup    ProjectType = "GROUP"
+    ProjectTypeCollege  ProjectType = "COLLEGE"
+)
+
+type ProjectStatus string
+
+const (
+    ProjectStatusActive    ProjectStatus = "ACTIVE"
+    ProjectStatusCompleted ProjectStatus = "COMPLETED"
+)
+
+type ProjectLinks struct {
+    CodeLink string `json:"code_link,omitempty"`
+    Video    string `json:"video,omitempty"`
+    Files    string `json:"files,omitempty"`
+    Website  string `json:"website,omitempty"`
+}
+
+type Project struct {
+    BaseModel          `gorm:"embedded"`
+    Title              string         `gorm:"size:255;not null"`
+    Description        string         `gorm:"type:text;not null"`
+    Tags               []byte         `gorm:"type:jsonb;not null"`
+    ProjectType        ProjectType    `gorm:"size:20;not null;index:idx_project_type"`
+    Year               int            `gorm:"not null;default:2025"` // Default to current year
+    Mentor             string         `gorm:"size:255"`              // Optional field
+	Contributors       []byte         `gorm:"type:jsonb;not null"`    // Changed to []byte
+    Links              []byte         `gorm:"type:jsonb"`             // Changed to []byte
+    PostedBy           string         `gorm:"size:36;not null;index:idx_project_owner"`
+    Status             ProjectStatus  `gorm:"size:20;not null;default:'ACTIVE';index:idx_project_status"`
+    
+    // Relationships
+    User               User           `gorm:"foreignKey:PostedBy;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+}
+
+type SavedProject struct {
+    BaseModel   `gorm:"embedded"`
+    UserID      string `gorm:"size:36;not null;uniqueIndex:idx_saved_project"`
+    ProjectID   string `gorm:"size:36;not null;uniqueIndex:idx_saved_project"`
+    
+	// Relationships
+    User        User    `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+    Project     Project `gorm:"foreignKey:ProjectID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+}
 
 func MigrateDB(db *gorm.DB) error {
 	// First create tables
@@ -283,8 +332,8 @@ func MigrateDB(db *gorm.DB) error {
 		&User{}, &RegisterRequest{}, &Verification{}, &UserProfile{}, 
 		&SocialLinks{}, &Experience{}, &Education{}, &Post{}, &Comment{}, 
 		&Like{}, &Follow{}, &Notification{}, &Conversation{}, &Message{},
-		// Add new models
 		&Company{}, &Job{}, &SavedJob{}, &JobReport{},&Event{}, &SavedEvent{},
+		&Project{}, &SavedProject{},
 	)
 	if err != nil {
 		return err
@@ -302,6 +351,12 @@ func MigrateDB(db *gorm.DB) error {
 
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_notification_user_created ON notifications (user_id, created_at DESC)")
 	
+	db.Exec(`ALTER TABLE projects ADD CONSTRAINT chk_project_type 
+		CHECK (project_type IN ('PERSONAL', 'GROUP', 'COLLEGE'))`)
+
+	db.Exec(`ALTER TABLE projects ADD CONSTRAINT chk_project_status 
+		CHECK (status IN ('ACTIVE', 'COMPLETED'))`)
+
 	return nil
 }
 
