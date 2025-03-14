@@ -3,6 +3,7 @@ package controller
 import (
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -96,8 +97,8 @@ func SendVerificationOTP(c *fiber.Ctx) error {
 	}
 	html, err := util.RenderTemplate("templates/verification_email.html", data)
 	if err != nil {
-		 return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			  "message": "Failed to render email template",
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Failed to render email template",
 		})
 	}
 	if err := services.SendEmail(user.Email, subject, text, html); err != nil {
@@ -227,8 +228,12 @@ func ForgotPassword(c *fiber.Ctx) error {
 
 	// Generate the reset password link with the reset token
 	// un comment this code on production environment.
-	resetPasswordLink := fmt.Sprintf("http://localhost:5173/reset-Password/%s", resetToken)
-
+	var resetPasswordLink string
+	if os.Getenv("SERVER") == "prod" {
+		resetPasswordLink = fmt.Sprintf("https://localhost:5173/reset-Password/%s", resetToken)
+	} else {
+		resetPasswordLink = fmt.Sprintf("https://localhost:5173/reset-Password/%s", resetToken)
+	}
 	data := map[string]string{
 		"ResetPasswordLink": resetPasswordLink,
 		"Username":          *user.UserName,
@@ -393,149 +398,149 @@ type SignUpData struct {
 }
 
 func SignUp(c *fiber.Ctx) error {
-    var formated_data SignUpData
+	var formated_data SignUpData
 
-    if err := c.BodyParser(&formated_data); err != nil {
-        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-            "message": err.Error(),
-        })
-    }
-    session := database.Session.Db
+	if err := c.BodyParser(&formated_data); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+	session := database.Session.Db
 
-    username := formated_data.UserName
-    // Check if username is already taken
-    if session.Model(&database.User{}).Where("user_name = ?", username).First(&database.User{}).RowsAffected > 0 {
-        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-            "message": "Username already exists",
-        })
-    }
+	username := formated_data.UserName
+	// Check if username is already taken
+	if session.Model(&database.User{}).Where("user_name = ?", username).First(&database.User{}).RowsAffected > 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "Username already exists",
+		})
+	}
 
-    email := formated_data.Email
-    var existingUser database.User
-    // Check if email exists in the database
-    if err := session.Where("email = ?", email).First(&existingUser).Error; err == nil {
-        // Email exists
-        if existingUser.IsVerified {
-            return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-                "message": "Email already exists",
-            })
-        } else {
-            // Update existing unverified user with new details
-            password := formated_data.Password
-            hashed_password, err := util.HashPassword(password)
-            if err != nil {
-                return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-                    "message": "Internal Server Error",
-                })
-            }
+	email := formated_data.Email
+	var existingUser database.User
+	// Check if email exists in the database
+	if err := session.Where("email = ?", email).First(&existingUser).Error; err == nil {
+		// Email exists
+		if existingUser.IsVerified {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"message": "Email already exists",
+			})
+		} else {
+			// Update existing unverified user with new details
+			password := formated_data.Password
+			hashed_password, err := util.HashPassword(password)
+			if err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"message": "Internal Server Error",
+				})
+			}
 
-            existingUser.UserName = &username
-            existingUser.Password = hashed_password
-            if err := session.Save(&existingUser).Error; err != nil {
-                return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-                    "message": "Failed to update user",
-                })
-            }
+			existingUser.UserName = &username
+			existingUser.Password = hashed_password
+			if err := session.Save(&existingUser).Error; err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"message": "Failed to update user",
+				})
+			}
 
-            // Generate tokens and proceed
-            tokens, err := util.GenerateToken(existingUser.ID)
-            if err != nil {
-                return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-                    "message": "Failed to generate tokens",
-                })
-            }
+			// Generate tokens and proceed
+			tokens, err := util.GenerateToken(existingUser.ID)
+			if err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"message": "Failed to generate tokens",
+				})
+			}
 
-            // Set cookies and respond
-            access_cookie := &fiber.Cookie{
-                Name:     "access_token",
-                Value:    tokens["access_token"],
-                HTTPOnly: true,
-                Secure:   false,
-                SameSite: "None",
-            }
-            refresh_cookie := &fiber.Cookie{
-                Name:     "refresh_token",
-                Value:    tokens["refresh_token"],
-                HTTPOnly: true,
-                Secure:   false,
-                SameSite: "None",
-            }
-            c.Cookie(access_cookie)
-            c.Cookie(refresh_cookie)
+			// Set cookies and respond
+			access_cookie := &fiber.Cookie{
+				Name:     "access_token",
+				Value:    tokens["access_token"],
+				HTTPOnly: true,
+				Secure:   false,
+				SameSite: "None",
+			}
+			refresh_cookie := &fiber.Cookie{
+				Name:     "refresh_token",
+				Value:    tokens["refresh_token"],
+				HTTPOnly: true,
+				Secure:   false,
+				SameSite: "None",
+			}
+			c.Cookie(access_cookie)
+			c.Cookie(refresh_cookie)
 
-            return c.Status(fiber.StatusOK).JSON(fiber.Map{
-                "message": "User updated",
-                "user": fiber.Map{
-                    "id":       existingUser.ID,
-                    "username": existingUser.UserName,
-                    "email":    existingUser.Email,
-                },
-            })
-        }
-    } else if !errors.Is(err, gorm.ErrRecordNotFound) {
-        // Handle other database errors
-        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-            "message": "Database error",
-        })
-    }
+			return c.Status(fiber.StatusOK).JSON(fiber.Map{
+				"message": "User updated",
+				"user": fiber.Map{
+					"id":       existingUser.ID,
+					"username": existingUser.UserName,
+					"email":    existingUser.Email,
+				},
+			})
+		}
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		// Handle other database errors
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Database error",
+		})
+	}
 
-    // Email doesn't exist - create new user
-    password := formated_data.Password
-    hashed_password, err := util.HashPassword(password)
-    if err != nil {
-        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-            "message": "Internal Server Error",
-        })
-    }
+	// Email doesn't exist - create new user
+	password := formated_data.Password
+	hashed_password, err := util.HashPassword(password)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Internal Server Error",
+		})
+	}
 
-    newUser := database.User{
-        Email:    email,
-        Password: hashed_password,
-        UserName: &username,
-        // Ensure default values match admin-created users
-        RegistrationStatus: "not_registered",
-        IsVerified:         false,
-    }
+	newUser := database.User{
+		Email:    email,
+		Password: hashed_password,
+		UserName: &username,
+		// Ensure default values match admin-created users
+		RegistrationStatus: "not_registered",
+		IsVerified:         false,
+	}
 
-    if err := session.Create(&newUser).Error; err != nil {
-        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-            "message": "Failed to create user",
-        })
-    }
+	if err := session.Create(&newUser).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Failed to create user",
+		})
+	}
 
-    // Generate tokens and respond
-    tokens, err := util.GenerateToken(newUser.ID)
-    if err != nil {
-        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-            "message": "Failed to generate tokens",
-        })
-    }
+	// Generate tokens and respond
+	tokens, err := util.GenerateToken(newUser.ID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Failed to generate tokens",
+		})
+	}
 
-    access_cookie := &fiber.Cookie{
-        Name:     "access_token",
-        Value:    tokens["access_token"],
-        HTTPOnly: true,
-        Secure:   false,
-        SameSite: "None",
-    }
-    refresh_cookie := &fiber.Cookie{
-        Name:     "refresh_token",
-        Value:    tokens["refresh_token"],
-        HTTPOnly: true,
-        Secure:   false,
-        SameSite: "None",
-    }
-    c.Cookie(access_cookie)
-    c.Cookie(refresh_cookie)
+	access_cookie := &fiber.Cookie{
+		Name:     "access_token",
+		Value:    tokens["access_token"],
+		HTTPOnly: true,
+		Secure:   false,
+		SameSite: "None",
+	}
+	refresh_cookie := &fiber.Cookie{
+		Name:     "refresh_token",
+		Value:    tokens["refresh_token"],
+		HTTPOnly: true,
+		Secure:   false,
+		SameSite: "None",
+	}
+	c.Cookie(access_cookie)
+	c.Cookie(refresh_cookie)
 
-    return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-        "message": "User Created",
-        "user": fiber.Map{
-            "id":       newUser.ID,
-            "username": newUser.UserName,
-            "email":    newUser.Email,
-        },
-    })
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"message": "User Created",
+		"user": fiber.Map{
+			"id":       newUser.ID,
+			"username": newUser.UserName,
+			"email":    newUser.Email,
+		},
+	})
 }
 
 func CheckAuth(c *fiber.Ctx) error {
