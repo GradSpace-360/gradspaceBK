@@ -230,9 +230,9 @@ func ForgotPassword(c *fiber.Ctx) error {
 	// un comment this code on production environment.
 	var resetPasswordLink string
 	if os.Getenv("SERVER") == "prod" {
-		resetPasswordLink = fmt.Sprintf("https://localhost:5173/reset-Password/%s", resetToken)
+		resetPasswordLink = fmt.Sprintf("https://feature-user.gradspace-frontend.pages.dev/reset-Password/%s", resetToken)
 	} else {
-		resetPasswordLink = fmt.Sprintf("https://localhost:5173/reset-Password/%s", resetToken)
+		resetPasswordLink = fmt.Sprintf("http://localhost:5173/reset-Password/%s", resetToken)
 	}
 	data := map[string]string{
 		"ResetPasswordLink": resetPasswordLink,
