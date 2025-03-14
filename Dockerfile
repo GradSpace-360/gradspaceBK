@@ -20,5 +20,6 @@ WORKDIR /root/
 
 #copy build file from previous image
 COPY --from=builder /app/app .
+RUN mkdir -p templates
 
 CMD ["./app"]
