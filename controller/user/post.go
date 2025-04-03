@@ -24,6 +24,7 @@ func PostRoutes(base *fiber.Group) error {
 	post.Get("/", GetPosts)
 	post.Post("/:id/like", ToggleLike)
 	post.Post("/:id/comment", CreateComment)
+	post.Delete("/:id/comment/:commentId", DeleteComment)
 	post.Delete("/:id", DeletePost)
 	post.Get("/user/:username", GetUserPosts)
 	
@@ -313,6 +314,40 @@ func CreateComment(c *fiber.Ctx) error {
 		"success": true,
 		"data":    commentResponse,
 	})
+}
+
+// Implement the DeleteComment handler function
+func DeleteComment(c *fiber.Ctx) error {
+	userData := c.Locals("user_data").(jwt.MapClaims)
+	userID := userData["user_id"].(string)
+	postID := c.Params("id")
+	commentID := c.Params("commentId")
+	
+	session := database.Session.Db
+	
+	// First check if the comment exists and belongs to the specified post
+	var comment database.Comment
+	if err := session.First(&comment, "id = ? AND post_id = ?", commentID, postID).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Comment not found in the specified post",
+		})
+	}
+	
+	// Check if the user is the author of the comment
+	if comment.AuthorID != userID {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+	
+	// Delete the comment
+	if err := session.Delete(&comment).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to delete comment",
+		})
+	}
+	
+	return c.JSON(fiber.Map{"success": true})
 }
 
 func DeletePost(c *fiber.Ctx) error {
