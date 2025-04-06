@@ -18,6 +18,7 @@ func EventRoutes(base *fiber.Group) {
 	event.Get("/saved", middlewares.AuthMiddleware, GetSavedEvents)
 	event.Post("/save", middlewares.AuthMiddleware, SaveEvent)
 	event.Patch("/:id/status", middlewares.AuthMiddleware, UpdateRegistrationStatus)
+	event.Post("/:id/report",middlewares.AuthMiddleware, ReportEvent) 
 	event.Get("/my-events", middlewares.AuthMiddleware, GetMyEvents)
 	event.Delete("/:id", middlewares.AuthMiddleware, DeleteEvent)
 	event.Post("/", middlewares.AuthMiddleware, AddNewEvent)
@@ -47,6 +48,65 @@ type EventResponse struct {
 	PostedBy           PosterResponse `json:"posted_by"`
 	CreatedAt          string         `json:"created_at"`
 	IsSaved            bool           `json:"is_saved"`
+}
+
+func ReportEvent(c *fiber.Ctx) error {
+	userData := c.Locals("user_data").(jwt.MapClaims)
+	reporterID, _ := userData["user_id"].(string)
+	eventID := c.Params("id")
+
+	var req struct {
+		Reason database.EventReportReason `json:"reason"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid request",
+		})
+	}
+
+	// Check if event exists
+	var event database.Event
+	if err := database.Session.Db.Where("id = ?", eventID).First(&event).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"message": "Event not found",
+		})
+	}
+
+	// Check if already reported
+	var existingReport database.EventReport
+	err := database.Session.Db.
+		Where("event_id = ? AND reporter_id = ?", eventID, reporterID).
+		First(&existingReport).Error
+	if err == nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Event already reported",
+		})
+	} else if err != nil && err.Error() != "record not found" {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Failed to check previous reports",
+		})
+	}
+
+	report := database.EventReport{
+		EventID:    eventID,
+		ReporterID: reporterID,
+		Reason:     req.Reason,
+	}
+	if err := database.Session.Db.Create(&report).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Failed to report event",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Event reported",
+	})
 }
 
 func GetEvents(c *fiber.Ctx) error {
