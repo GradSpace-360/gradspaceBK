@@ -24,11 +24,14 @@ func PostRoutes(base *fiber.Group) error {
 	post.Get("/", GetPosts)
 	post.Post("/:id/like", ToggleLike)
 	post.Post("/:id/comment", CreateComment)
+	post.Post("/:id/report", ReportPost) 
+	post.Delete("/:id/comment/:commentId", DeleteComment)
 	post.Delete("/:id", DeletePost)
 	post.Get("/user/:username", GetUserPosts)
-	
 	return nil
 }
+
+
 
 
 func CreatePost(c *fiber.Ctx) error {
@@ -315,6 +318,40 @@ func CreateComment(c *fiber.Ctx) error {
 	})
 }
 
+// Implement the DeleteComment handler function
+func DeleteComment(c *fiber.Ctx) error {
+	userData := c.Locals("user_data").(jwt.MapClaims)
+	userID := userData["user_id"].(string)
+	postID := c.Params("id")
+	commentID := c.Params("commentId")
+	
+	session := database.Session.Db
+	
+	// First check if the comment exists and belongs to the specified post
+	var comment database.Comment
+	if err := session.First(&comment, "id = ? AND post_id = ?", commentID, postID).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Comment not found in the specified post",
+		})
+	}
+	
+	// Check if the user is the author of the comment
+	if comment.AuthorID != userID {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+	
+	// Delete the comment
+	if err := session.Delete(&comment).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to delete comment",
+		})
+	}
+	
+	return c.JSON(fiber.Map{"success": true})
+}
+
 func DeletePost(c *fiber.Ctx) error {
 	userData := c.Locals("user_data").(jwt.MapClaims)
 	userID := userData["user_id"].(string)
@@ -446,5 +483,53 @@ func GetUserPosts(c *fiber.Ctx) error {
             "total_pages":  totalPages,
             "total_items":  totalItems,
         },
+    })
+}
+
+// ReportPost allows a user to report a post
+func ReportPost(c *fiber.Ctx) error {
+    userData := c.Locals("user_data").(jwt.MapClaims)
+    userID := userData["user_id"].(string)
+    postID := c.Params("id")
+
+    type ReportRequest struct {
+        Reason database.ReportReason `json:"reason" validate:"required,oneof=inappropriateContent Spam Harassment"`
+    }
+
+    var req ReportRequest
+    if err := c.BodyParser(&req); err != nil {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+            "error": "Invalid request body",
+        })
+    }
+
+    // Check if already reported
+    var existingReport database.PostReport
+    result := database.Session.Db.
+        Where("post_id = ? AND reporter_id = ?", postID, userID).
+        First(&existingReport)
+
+    if result.Error == nil {
+        return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+            "error": "You have already reported this post",
+        })
+    }
+
+    // Create report
+    report := database.PostReport{
+        PostID:     postID,
+        ReporterID: userID,
+        Reason:     req.Reason,
+    }
+
+    if err := database.Session.Db.Create(&report).Error; err != nil {
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+            "error": "Failed to report post",
+        })
+    }
+
+    return c.JSON(fiber.Map{
+        "success": true,
+        "message": "Post reported successfully",
     })
 }

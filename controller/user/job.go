@@ -18,6 +18,7 @@ func JobRoutes(base *fiber.Group) {
     job.Get("/saved",middlewares.AuthMiddleware ,GetSavedJobs)
     job.Post("/save",middlewares.AuthMiddleware ,SaveJob)
     job.Patch("/:id/status",middlewares.AuthMiddleware,UpdateHiringStatus)
+    job.Post("/:id/report", middlewares.AuthMiddleware, ReportJob)
     job.Get("/my-jobs",middlewares.AuthMiddleware ,GetMyJobs)
     job.Delete("/:id",middlewares.AuthMiddleware, DeleteJob)
     job.Post("/",middlewares.AuthMiddleware, AddNewJob)
@@ -62,6 +63,76 @@ type PosterResponse struct {
 type Pagination struct {
     Page  int `query:"page"`
     Limit int `query:"limit"`
+}
+
+func ReportJob(c *fiber.Ctx) error {
+    userData := c.Locals("user_data").(jwt.MapClaims)
+    reporterID, ok := userData["user_id"].(string)
+    if !ok || reporterID == "" {
+        return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+            "success": false,
+            "message": "Unauthorized: missing user ID",
+        })
+    }
+    
+    jobID := c.Params("id")
+    
+    var req struct {
+        Reason database.JobReportReason `json:"reason"`
+    }
+    
+    if err := c.BodyParser(&req); err != nil {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+            "success": false,
+            "message": "Invalid request",
+        })
+    }
+    
+    // Check if job exists
+    var job database.Job
+    if err := database.Session.Db.Where("id = ?", jobID).First(&job).Error; err != nil {
+        return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+            "success": false,
+            "message": "Job not found",
+        })
+    }
+    
+    // Check if already reported by this user
+    var existingReport database.JobReport
+    err := database.Session.Db.
+        Where("job_id = ? AND reporter_id = ?", jobID, reporterID).
+        First(&existingReport).Error
+    
+    if err == nil {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+            "success": false,
+            "message": "Job already reported",
+        })
+    } else if err != nil && err.Error() != "record not found" {
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+            "success": false,
+            "message": "Failed to check previous reports",
+        })
+    }
+    
+    // Create new report
+    report := database.JobReport{
+        JobID:      jobID,
+        ReporterID: reporterID,
+        Reason:     req.Reason,
+    }
+    
+    if err := database.Session.Db.Create(&report).Error; err != nil {
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+            "success": false,
+            "message": "Failed to report job",
+        })
+    }
+    
+    return c.JSON(fiber.Map{
+        "success": true,
+        "message": "Job reported successfully",
+    })
 }
 
 func GetJobs(c *fiber.Ctx) error {

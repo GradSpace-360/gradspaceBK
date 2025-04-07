@@ -204,18 +204,6 @@ type SavedJob struct {
 	Job         Job     `gorm:"foreignKey:JobID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
-type JobReport struct {
-	BaseModel     `gorm:"embedded"`
-	JobID         string `gorm:"size:36;not null"`
-	Reason        string `gorm:"size:255;not null"`
-	JobPosterID   string `gorm:"size:36;not null"`
-	ReporterID    string `gorm:"size:36;not null"`
-	
-	Job          Job     `gorm:"foreignKey:JobID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	JobPoster    User    `gorm:"foreignKey:JobPosterID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	Reporter     User    `gorm:"foreignKey:ReporterID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-}
-
 func (base *BaseModel) BeforeCreate(tx *gorm.DB) error {
 	*base = BaseModel{
 		ID:        uuid.New().String(),
@@ -326,6 +314,68 @@ type SavedProject struct {
     Project     Project `gorm:"foreignKey:ProjectID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
+// --------------reporting system -------------
+
+type ReportReason string
+
+const (
+	ReportReasonInappropriate ReportReason = "inappropriateContent"
+	ReportReasonSpam          ReportReason = "Spam"
+	ReportReasonHarassment    ReportReason = "Harassment"
+)
+
+type PostReport struct {
+	BaseModel   `gorm:"embedded"`
+	PostID      string       `gorm:"size:36;not null;index"`
+	ReporterID  string       `gorm:"size:36;not null;index"`
+	Reason      ReportReason `gorm:"size:50;not null"`
+	
+	Post       Post         `gorm:"foreignKey:PostID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Reporter   User         `gorm:"foreignKey:ReporterID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+}
+
+
+// ----------- Event Report ---------------
+type EventReportReason string
+
+const (
+	EventReportInappropriate EventReportReason = "inappropriateContent"
+	EventReportSpam          EventReportReason = "Spam"
+	EventReportFake          EventReportReason = "Fake Event"
+	EventReportSafety        EventReportReason = "Safety Concerns"
+)
+
+type EventReport struct {
+	BaseModel   `gorm:"embedded"`
+	EventID     string           `gorm:"size:36;not null;index"`
+	ReporterID  string           `gorm:"size:36;not null;index"`
+	Reason      EventReportReason `gorm:"size:50;not null"`
+	
+	Event     Event       `gorm:"foreignKey:EventID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Reporter  User        `gorm:"foreignKey:ReporterID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+}
+
+//  -------------- Job Report ---------------
+type JobReportReason string
+
+const (
+	JobReportFake       JobReportReason = "Fake Job"
+	JobReportScam       JobReportReason = "Scam"
+	JobReportDiscrim    JobReportReason = "Discriminatory Content"
+	JobReportInaccurate JobReportReason = "Incorrect Information"
+)
+
+type JobReport struct {
+	BaseModel   `gorm:"embedded"`
+	JobID       string          `gorm:"size:36;not null;index"`
+	ReporterID  string          `gorm:"size:36;not null;index"`
+	Reason      JobReportReason `gorm:"size:50;not null"`
+	
+	Job       Job         `gorm:"foreignKey:JobID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Reporter  User        `gorm:"foreignKey:ReporterID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+}
+
+
 func MigrateDB(db *gorm.DB) error {
 	// First create tables
 	err := db.AutoMigrate(
@@ -333,21 +383,19 @@ func MigrateDB(db *gorm.DB) error {
 		&SocialLinks{}, &Experience{}, &Education{}, &Post{}, &Comment{}, 
 		&Like{}, &Follow{}, &Notification{}, &Conversation{}, &Message{},
 		&Company{}, &Job{}, &SavedJob{}, &JobReport{},&Event{}, &SavedEvent{},
-		&Project{}, &SavedProject{},
+		&Project{}, &SavedProject{},&PostReport{},&EventReport{},
 	)
 	if err != nil {
 		return err
 	}
 
+	// DDL commands 
 	// Then add constraints
 	db.Exec(`ALTER TABLE events ADD CONSTRAINT chk_event_type 
     CHECK (event_type IN ('CAMPUS_EVENT', 'ALUM_EVENT'))`)
 
 	db.Exec(`ALTER TABLE jobs ADD CONSTRAINT chk_job_type 
 		CHECK (job_type IN ('Part-Time', 'Full-Time', 'Internship', 'Freelance'))`)
-
-	db.Exec(`ALTER TABLE job_reports ADD CONSTRAINT chk_report_reason 
-		CHECK (reason IN ('Fake Job', 'Scam', 'Discriminatory Content', 'Incorrect Information'))`)
 
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_notification_user_created ON notifications (user_id, created_at DESC)")
 	
@@ -357,7 +405,24 @@ func MigrateDB(db *gorm.DB) error {
 	db.Exec(`ALTER TABLE projects ADD CONSTRAINT chk_project_status 
 		CHECK (status IN ('ACTIVE', 'COMPLETED'))`)
 
+	// Event Report Constraints
+	db.Exec(`ALTER TABLE event_reports ADD CONSTRAINT chk_event_report_reason 
+		CHECK (reason IN ('inappropriateContent', 'Spam', 'Fake Event', 'Safety Concerns'))`)
+	// Job Report Constraints
+	// Job Report Constraints
+	db.Exec(`ALTER TABLE job_reports ADD CONSTRAINT chk_job_report_reason 
+		CHECK (reason IN ('Fake Job', 'Scam', 'Discriminatory Content', 'Incorrect Information'))`)
+
+	// some ddl commands for post report table to ensure data integrity 
+	// Add check constraint after table creation
+	db.Exec(`ALTER TABLE post_reports ADD CONSTRAINT chk_report_reason 
+		CHECK (reason IN ('inappropriateContent', 'Spam', 'Harassment'))`)
+	// Add unique composite index to prevent duplicate reports
+	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_post_report_unique ON post_reports (post_id, reporter_id)")
+	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_event_report_unique ON event_reports (event_id, reporter_id)")
+	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_job_report_unique ON job_reports (job_id, reporter_id)")
 	return nil
+	
 }
 
 func CleanupOldNotifications() error {

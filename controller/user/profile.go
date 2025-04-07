@@ -17,12 +17,161 @@ import (
 )
 
 func RegisterProfileRoutes(base *fiber.Group) error {
+
 	profile := base.Group("profile") // removed trailing slash for consistency
 	profile.Patch("/profileImage", middlewares.AuthMiddleware, UpdateProfileImage)
 	profile.Get("/:userName", middlewares.AuthMiddleware, GetUserProfile)
 	profile.Patch("/:userName", middlewares.AuthMiddleware, UpdateUserProfile)
 	profile.Post("/:userName/follow", middlewares.AuthMiddleware, ToggleFollow)
+	profile.Get("/:userName/followers", middlewares.AuthMiddleware, GetFollowers)
+	profile.Get("/:userName/following", middlewares.AuthMiddleware, GetFollowing)
 	return nil
+
+}
+
+func GetFollowers(c *fiber.Ctx) error {
+	// Get target user's username from the URL param
+	targetUserName := c.Params("userName")
+	session := database.Session.Db
+
+	// Find target user
+	var targetUser database.User
+	if err := session.First(&targetUser, "user_name = ?", targetUserName).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User not found"})
+	}
+
+	// Get current logged in user ID from auth middleware
+	var currentUserID string
+	if userData, ok := c.Locals("user_data").(jwt.MapClaims); ok {
+		currentUserID = userData["user_id"].(string)
+	}
+
+	// Get all follower records where targetUser is being followed.
+	var follows []database.Follow
+	if err := session.Where("following_id = ?", targetUser.ID).Find(&follows).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Error fetching followers"})
+	}
+
+	result := make([]fiber.Map, 0, len(follows))
+	for _, f := range follows {
+		// f.FollowerID is the user who is following targetUser.
+		var followerUser database.User
+		if err := session.First(&followerUser, "id = ?", f.FollowerID).Error; err != nil {
+			continue
+		}
+		// Determine the display username.
+		displayUserName := ""
+		if followerUser.UserName != nil {
+			displayUserName = *followerUser.UserName
+		}
+		// Get the user's profile image if exists.
+		var followerProfile database.UserProfile
+		profileImageURL := ""
+		if err := session.Where("user_id = ?", followerUser.ID).First(&followerProfile).Error; err == nil {
+			profileImageURL = followerProfile.ProfileImage
+		}
+
+		// Check if current logged in user is following this follower.
+		isFollowing := false
+		if currentUserID != "" {
+			var tmpFollow database.Follow
+			err := session.Where("follower_id = ? AND following_id = ?", currentUserID, followerUser.ID).
+				First(&tmpFollow).Error
+			if err == nil {
+				isFollowing = true
+			}
+		}
+
+		result = append(result, fiber.Map{
+			"profileImageUrl": profileImageURL,
+			"fullName":        followerUser.FullName,
+			"userName":        displayUserName,
+			"isFollowing":     isFollowing,
+		})
+	}
+	// TODO: use pagination to avoid the overload,as per the other pagination models used in the gradspace System
+	// in frontend use infinite scroll behaviour in the followers list container.
+	// utils: refer the post.go api's and frontend userDashboard/post/ section.
+
+	return c.JSON(fiber.Map{
+		"followers": result,
+	})
+}
+
+func GetFollowing(c *fiber.Ctx) error {
+	// Get target user's username from the URL param
+	targetUserName := c.Params("userName")
+	session := database.Session.Db
+
+	// Find target user
+	var targetUser database.User
+	if err := session.First(&targetUser, "user_name = ?", targetUserName).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User not found"})
+	}
+
+	// Get current logged in user ID from auth middleware
+	var currentUserID string
+	if userData, ok := c.Locals("user_data").(jwt.MapClaims); ok {
+		currentUserID = userData["user_id"].(string)
+	}
+
+	// Get all following records where targetUser is the follower.
+	var follows []database.Follow
+	if err := session.Where("follower_id = ?", targetUser.ID).Find(&follows).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Error fetching following list"})
+	}
+
+	result := make([]fiber.Map, 0, len(follows))
+	for _, f := range follows {
+		// f.FollowingID is the user whom targetUser follows.
+		var followingUser database.User
+		if err := session.First(&followingUser, "id = ?", f.FollowingID).Error; err != nil {
+			continue
+		}
+		// Determine the display username.
+		displayUserName := ""
+		if followingUser.UserName != nil {
+			displayUserName = *followingUser.UserName
+		}
+		// Get the user's profile image if exists.
+		var followingProfile database.UserProfile
+		profileImageURL := ""
+		if err := session.Where("user_id = ?", followingUser.ID).First(&followingProfile).Error; err == nil {
+			profileImageURL = followingProfile.ProfileImage
+		}
+
+		// Check if current logged in user is following this user.
+		isFollowing := false
+		if currentUserID == targetUser.ID {
+			// a user checking their own followings then isFollowing always true.
+			isFollowing = true
+		} else {
+			if currentUserID != "" {
+				var tmpFollow database.Follow
+				err := session.Where("follower_id = ? AND following_id = ?", currentUserID, followingUser.ID).
+					First(&tmpFollow).Error
+				if err == nil {
+					isFollowing = true
+				}
+			}
+		}
+
+		result = append(result, fiber.Map{
+			"profileImageUrl": profileImageURL,
+			"fullName":        followingUser.FullName,
+			"userName":        displayUserName,
+			"isFollowing":     isFollowing,
+		})
+	}
+
+	// TODO: use pagination to avoid the overload,as per the other pagination models used in the gradspace System
+	// in frontend use infinite scroll behaviour in the following list container.
+	// utils: refer the post.go api's and frontend userDashboard/post/ section.
+
+	return c.JSON(fiber.Map{
+		"following": result,
+	})
+
 }
 
 func GetUserProfile(c *fiber.Ctx) error {

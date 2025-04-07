@@ -1148,3 +1148,318 @@ Required
   "success": true
 }
 ```
+
+Here's the API documentation for your post-report admin endpoints following the style of the Project Shelf documentation:
+
+---
+
+## Post Reports Endpoints (Admin)
+
+### `GET /admin/post-reports/`
+
+**Description**  
+Retrieve a list of reported posts with aggregated flag data and pagination.
+
+**Authentication**  
+Required (Admin privileges)
+
+**Query Parameters**
+| Parameter | Type | Required | Default | Description |
+|-----------|--------|----------|---------|-------------|
+| `page` | integer | No | 1 | Page number |
+| `limit` | integer | No | 10 | Number of records per page |
+
+**Response Format**
+
+```json
+{
+  "data": [
+    {
+      "post_id": "string",
+      "post_preview": "string (url)",
+      "author": {
+        "id": "string",
+        "username": "string"
+      },
+      "flag_count": 0,
+      "top_reason": "string",
+      "last_flagged": "datetime (ISO 8601)",
+      "post_date": "datetime (ISO 8601)"
+    }
+  ],
+  "meta": {
+    "current_page": 1,
+    "per_page": 10,
+    "total_pages": 0,
+    "total_items": 0
+  }
+}
+```
+
+**Sample Response**
+
+```json
+{
+  "data": [
+    {
+      "post_id": "9ab84f35-382f-45f5-a0d7-9a8c62582975",
+      "post_preview": "",
+      "author": {
+        "id": "f4079f9c-7cd4-4eca-baf2-b0d7bf466144",
+        "username": "karthik_Iyer"
+      },
+      "flag_count": 2,
+      "top_reason": "Spam",
+      "last_flagged": "2025-04-05T09:48:31.078758+05:30",
+      "post_date": "2025-04-03T22:36:37.600104+05:30"
+    }
+  ],
+  "meta": {
+    "current_page": 2,
+    "per_page": 7,
+    "total_pages": 2,
+    "total_items": 8
+  }
+}
+```
+
+---
+
+### `GET /admin/post-reports/:postId`
+
+**Description**  
+Get detailed report information for a specific post including all individual flags.
+
+**Authentication**  
+Required (Admin privileges)
+
+**URL Parameter**
+| Parameter | Type | Description |
+|-----------|--------|---------------------|
+| `postId` | string | Post identifier |
+
+**Response Format**
+
+```json
+{
+  "post_data": {
+    "id": "string",
+    "content": "string",
+    "image": "string (url)",
+    "createdAt": "datetime (ISO 8601)",
+    "author": {
+      "id": "string",
+      "username": "string"
+    },
+    "likes": 0,
+    "comments": 0
+  },
+  "flag_data": [
+    {
+      "reporter": "string",
+      "reason": "string",
+      "flagged_at": "datetime (ISO 8601)"
+    }
+  ]
+}
+```
+
+**Sample Response**
+
+```json
+{
+  "post_data": {
+    "id": "9ab84f35-382f-45f5-a0d7-9a8c62582975",
+    "content": "My new post\r\n",
+    "image": "",
+    "createdAt": "2025-04-03T22:36:37.600104+05:30",
+    "author": {
+      "id": "f4079f9c-7cd4-4eca-baf2-b0d7bf466144",
+      "username": "karthik_Iyer"
+    },
+    "likes": 1,
+    "comments": 0
+  },
+  "flag_data": [
+    {
+      "reporter": "joel",
+      "reason": "Spam",
+      "flagged_at": "2025-04-05T09:48:31.078758+05:30"
+    }
+  ]
+}
+```
+
+---
+
+### `DELETE /admin/post-reports/:postId/dismiss`
+
+**Description**  
+Dismiss all reports for a specific post.
+
+**Authentication**  
+Required (Admin privileges)
+
+**URL Parameter**
+| Parameter | Type | Description |
+|-----------|--------|---------------------|
+| `postId` | string | Post identifier |
+
+**Response Format**
+
+```json
+{
+  "success": true,
+  "message": "string"
+}
+```
+
+**Sample Response**
+
+```json
+{
+  "success": true,
+  "message": "Dismissed 2 reports"
+}
+```
+
+---
+
+### `DELETE /admin/post-reports/posts/:postId`
+
+**Description**  
+Delete a post and all associated data (admin override).
+
+**Authentication**  
+Required (Admin privileges)
+
+**URL Parameter**
+| Parameter | Type | Description |
+|-----------|--------|---------------------|
+| `postId` | string | Post identifier |
+
+**Response Format**
+
+```json
+{
+  "success": true,
+  "message": "string"
+}
+```
+
+**Sample Response**
+
+```json
+{
+  "success": true,
+  "message": "Post and associated data deleted"
+}
+```
+
+---
+
+## Common Response Structures
+
+### Error Response
+
+```json
+{
+  "error": "string",
+  "details": "string (optional)"
+}
+```
+
+---
+
+### `POST /posts/:id/report`
+
+**Description**  
+Report a post for violating community guidelines. Users can only report a post once.
+
+**Authentication**  
+Required
+
+**URL Parameter**
+| Parameter | Type | Description |
+|-----------|--------|---------------------|
+| `id` | string | ID of the post to report |
+
+**Request Body**
+
+```json
+{
+  "reason": "string (required, one of: inappropriateContent, Spam, Harassment)"
+}
+```
+
+**Response Format**
+
+```json
+{
+  "success": true,
+  "message": "string"
+}
+```
+
+**Sample Request**
+
+```json
+{
+  "reason": "Spam"
+}
+```
+
+**Sample Success Response**
+
+```json
+{
+  "success": true,
+  "message": "Post reported successfully"
+}
+```
+
+**Error Responses**  
+`400 Bad Request` - Invalid request body:
+
+```json
+{
+  "error": "Invalid request body"
+}
+```
+
+`409 Conflict` - Duplicate report:
+
+```json
+{
+  "error": "You have already reported this post"
+}
+```
+
+`500 Internal Server Error`:
+
+```json
+{
+  "error": "Failed to report post"
+}
+```
+
+**Notes**
+
+- Valid report reasons:
+  - `inappropriateContent`: Post contains NSFW or prohibited material
+  - `Spam`: Post contains unwanted commercial content
+  - `Harassment`: Post targets individuals/groups negatively
+- Reports are anonymous to other users
+
+---
+
+**Common Error Scenarios**
+
+- `400 Bad Request`: Invalid parameters
+- `401 Unauthorized`: Missing/invalid authentication
+- `403 Forbidden`: Insufficient permissions
+- `404 Not Found`: Resource not found
+- `409 Conflict`: Duplicate report attempt
+- `500 Internal Server Error`: Server-side failure
+
+---
